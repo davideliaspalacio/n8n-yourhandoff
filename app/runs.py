@@ -19,9 +19,12 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
+from pathlib import Path
 from typing import Any, Protocol
 
 logger = logging.getLogger(__name__)
+
+MIGRATIONS_DIR = Path(__file__).resolve().parent.parent / "migrations"
 
 RUNNING = "running"
 SUCCEEDED = "succeeded"
@@ -140,6 +143,13 @@ class PostgresRunStore:
 
     async def open(self) -> None:
         await self._pool.open()
+
+    async def migrate(self) -> None:
+        """Aplica migrations/*.sql en orden. Son idempotentes, así que corre en
+        cada arranque y ningún despliegue depende de un paso manual."""
+        for path in sorted(MIGRATIONS_DIR.glob("*.sql")):
+            async with self._pool.connection() as conn:
+                await conn.execute(path.read_text())
 
     async def close(self) -> None:
         await self._pool.close()

@@ -19,8 +19,8 @@ uv run uvicorn app.main:app --reload
 open http://localhost:8000/docs
 ```
 
-Sin `DATABASE_URL` los runs viven en memoria. Para guardarlos, aplicar
-`migrations/001_flow_runs.sql` (idempotente) en la base que se use.
+Sin `DATABASE_URL` los runs viven en memoria. Con ella, el servicio aplica
+`migrations/*.sql` (idempotentes) al arrancar.
 
 ```bash
 uv run pytest                                  # 41 tests, sin red
@@ -56,7 +56,8 @@ que mandar también `X-API-Key`.
 ## Cortar n8n
 
 1. Desplegar en Railway (`railway.json` + `Dockerfile`, healthcheck en `/health`)
-   con las variables de `.env.example`. Aplicar la migración en la base.
+   con las variables de `.env.example`. Desplegado en Railway: proyecto
+   `handoff-flows` de Jake's Projects, con su propio Postgres.
 2. Probar con `dry_run: true` y un booking real; revisar `GET /v1/runs/{id}`.
 3. En el workflow que hoy hace *Execute Workflow → Discovery Call Booked*,
    cambiar ese nodo por un *HTTP Request* `POST /v1/flows/discovery-call-booked`

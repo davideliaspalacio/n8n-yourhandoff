@@ -1,7 +1,7 @@
 """Almacén de runs contra un Postgres real. Se salta sin TEST_DATABASE_URL.
 
     TEST_DATABASE_URL=postgresql://... uv run pytest tests/test_postgres_store.py
-(la base necesita migrations/001_flow_runs.sql aplicada)
+(el propio test aplica las migraciones)
 """
 
 import os
@@ -19,6 +19,7 @@ pytestmark = pytest.mark.skipif(not DSN, reason="TEST_DATABASE_URL not set")
 async def pg():
     store = PostgresRunStore(DSN)
     await store.open()
+    await store.migrate()
     yield store
     await store.close()
 

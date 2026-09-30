@@ -32,6 +32,7 @@ async def _build_store(settings: Settings) -> RunStore:
         return MemoryRunStore()
     store = PostgresRunStore(settings.database_url)
     await store.open()
+    await store.migrate()
     orphans = await store.fail_orphans()
     if orphans:
         logger.warning("marked %d interrupted run(s) as failed", orphans)
