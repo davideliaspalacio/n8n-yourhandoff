@@ -52,6 +52,7 @@ async def test_flows_lists_registry_with_stats(dash):
     assert rid.status_code == 200
     body = (await c.get("/v1/flows", headers=H)).json()
     [flow] = body["flows"]
+    assert flow["kind"] == "workflow"
     assert flow["slug"] == "echo" and flow["endpoint"] == "/v1/flows/echo"
     assert flow["stats"]["runs"] == 1 and flow["stats"]["succeeded"] == 1
     assert flow["graph"] == [

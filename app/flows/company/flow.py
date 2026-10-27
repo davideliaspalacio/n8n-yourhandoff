@@ -178,6 +178,7 @@ async def run(clients: Clients, data: CompanyRequest) -> CompanyEnrichment:
 
 spec = FlowSpec(
     slug="enrich-company",
+    kind="node",
     title="Enrich Company",
     input_model=CompanyRequest,
     response_model=CompanyEnrichment,

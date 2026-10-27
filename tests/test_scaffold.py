@@ -30,3 +30,12 @@ def test_scaffold_rejects_leading_digit_and_unsafe_text(tmp_path):
         create_flow("ok-flow", title='Di "hola"', root=tmp_path)
     with pytest.raises(ValueError, match="replaces"):
         create_flow("ok-flow", replaces="a\\b", root=tmp_path)
+
+
+def test_scaffold_kind_option(tmp_path):
+    create_flow("a-node", kind="node", root=tmp_path)
+    assert 'kind="node"' in (tmp_path / "app/flows/a_node/flow.py").read_text()
+    create_flow("a-wf", root=tmp_path)
+    assert 'kind="workflow"' in (tmp_path / "app/flows/a_wf/flow.py").read_text()
+    with pytest.raises(ValueError, match="kind"):
+        create_flow("bad-kind", kind="x", root=tmp_path)

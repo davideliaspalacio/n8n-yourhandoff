@@ -134,6 +134,7 @@ async def run_note(clients: Clients, data: NoteInput) -> NoteResult:
 specs = (
     FlowSpec(
         slug="crm-company",
+        kind="node",
         title="Company CRM Add/Update",
         input_model=CompanyCrmInput,
         response_model=CompanyCrmResult,
@@ -146,6 +147,7 @@ specs = (
     ),
     FlowSpec(
         slug="crm-contact",
+        kind="node",
         title="Contact CRM Add/Update",
         input_model=ContactCrmInput,
         response_model=ContactCrmResult,
@@ -158,6 +160,7 @@ specs = (
     ),
     FlowSpec(
         slug="crm-note",
+        kind="node",
         title="Post Note to HubSpot",
         input_model=NoteInput,
         response_model=NoteResult,

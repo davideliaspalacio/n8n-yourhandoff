@@ -32,7 +32,11 @@ cada flow es un paquete que se registra solo.
 ## Migrar un workflow de n8n
 
 1. Exportar el JSON del workflow desde n8n.
-2. `uv run python scripts/new_flow.py <slug> --replaces "<nombre en n8n>"`.
+2. `uv run python scripts/new_flow.py <slug> --replaces "<nombre en n8n>" [--kind node]`.
+   `kind` del `FlowSpec` (`workflow` por defecto): `workflow` = sustituye un
+   workflow completo de n8n / se dispara desde fuera; `node` = subflujo
+   reutilizable que otros flows llaman como función. El dashboard los
+   separa en dos tabs (Workflows / Nodes).
 3. Implementar `schemas.py` (el input es el cuerpo del trigger de n8n) y
    `flow.py`, marcando pasos con `record_step`. Mirar un flow parecido.
    Declarar `graph` en el `FlowSpec`: nodos `{"id", "label", "to": (ids)}`.

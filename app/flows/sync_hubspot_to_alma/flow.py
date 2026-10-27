@@ -184,6 +184,7 @@ async def run(clients: Clients, data: SyncHubspotToAlmaInput) -> SyncHubspotToAl
 
 spec = FlowSpec(
     slug="sync-hubspot-to-alma",
+    kind="workflow",
     title="Sync HubSpot to Alma",
     input_model=SyncHubspotToAlmaInput,
     response_model=SyncHubspotToAlmaResult,

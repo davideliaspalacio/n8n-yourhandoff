@@ -263,9 +263,14 @@ function showStep(pid, i) {
               : '<div class="text-body-secondary small mt-2">No detail.</div>');
 }
 
-async function renderFlows() {
-  const { flows } = await api('/v1/flows');
-  view.innerHTML = `<h2 class="page-title mb-3">Flows <span class="text-body-secondary fw-normal">(${flows.length})</span></h2>
+async function renderFlows(params = new URLSearchParams()) {
+  const all = (await api('/v1/flows')).flows;
+  const kind = params.get('kind') === 'node' ? 'node' : 'workflow';
+  const count = k => all.filter(f => (f.kind || 'workflow') === k).length;
+  const flows = all.filter(f => (f.kind || 'workflow') === kind);
+  const pill = (k, label, href) => `<li class="nav-item"><a class="nav-link py-1 px-3${kind === k ? ' active' : ''}" href="${href}">${label} (${count(k)})</a></li>`;
+  view.innerHTML = `<h2 class="page-title mb-3">Flows</h2>
+  <ul class="nav nav-pills nav-sm small mb-3">${pill('workflow', 'Workflows', '#/flows')}${pill('node', 'Nodes', '#/flows?kind=node')}</ul>
   <div class="card shadow-sm">` + (flows.length ? `<div class="table-responsive"><table class="table table-hover align-middle">
   <thead><tr><th>Flow</th><th>Mode</th><th>Replaces (n8n)</th><th>Last run</th>
   <th class="text-end">Runs 7d</th><th class="text-end">OK 7d</th><th class="text-end">Cost 7d</th></tr></thead><tbody>` + flows.map(f => `
@@ -281,7 +286,7 @@ async function renderFlows() {
     <td class="font-monospace text-end">${f.stats.runs}</td>
     <td class="font-monospace text-end">${f.stats.succeeded}</td>
     <td class="font-monospace text-end">${money(f.stats.cost_usd)}</td>
-  </tr>`).join('') + '</tbody></table></div>' : empty('No flows registered.')) + '</div>';
+  </tr>`).join('') + '</tbody></table></div>' : empty(kind === 'node' ? 'No nodes registered.' : 'No workflows registered.')) + '</div>';
 }
 
 async function renderFlow(slug) {
@@ -306,11 +311,12 @@ async function renderFlow(slug) {
   const failedLink = `#/runs?${new URLSearchParams({ flow: slug, status: 'failed' })}`;
   const stat = (label, value) => `<div class="col-6 col-md-3"><div class="card shadow-sm h-100">
     <div class="card-body"><div class="stat-label">${label}</div>${value}</div></div></div>`;
-  view.innerHTML = `<a href="#/flows" class="small link-secondary text-decoration-none">← flows</a>
+  view.innerHTML = `<a href="#/flows${f.kind === 'node' ? '?kind=node' : ''}" class="small link-secondary text-decoration-none">← flows</a>
   <div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mt-2 mb-3">
     <div>
       <h2 class="page-title mb-1">${esc(f.title)}
         <span class="badge text-bg-secondary align-middle fs-6">${esc(f.mode)}</span>
+        <span class="badge ${f.kind === 'node' ? 'text-bg-secondary' : 'text-bg-primary'} align-middle fs-6">${esc(f.kind || 'workflow')}</span>
         <span class="badge text-bg-light border align-middle fs-6 font-monospace">${esc(f.slug)}</span></h2>
       <div class="text-body-secondary"><span class="font-monospace">${esc(f.endpoint)}</span>
         · Replaces (n8n): ${esc(f.replaces)}</div>
@@ -445,7 +451,7 @@ async function render() {
     else if (path.startsWith('flows/')) await renderFlow(decodeURIComponent(path.split('/')[1]));
     else if (tab === 'runs') await renderRuns(params);
     else if (tab === 'costs') await renderCosts();
-    else await renderFlows();
+    else await renderFlows(params);
   } catch (e) {
     view.innerHTML = `<div class="alert alert-danger">${esc(e.message)}</div>`;
   }

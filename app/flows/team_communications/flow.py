@@ -114,6 +114,7 @@ async def run(clients: Clients, data: CommunicationsRequest) -> CommunicationsRe
 
 spec = FlowSpec(
     slug="team-communications",
+    kind="node",
     title="Search Team Communications",
     input_model=CommunicationsRequest,
     response_model=CommunicationsResult,

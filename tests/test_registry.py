@@ -35,6 +35,11 @@ def test_bad_mode_is_rejected():
         validate(_spec(mode="batch"), origin="test")
 
 
+def test_bad_kind_is_rejected():
+    with pytest.raises(RuntimeError, match="kind"):
+        validate(_spec(kind="pipeline"), origin="test")
+
+
 def test_input_model_must_be_pydantic():
     with pytest.raises(RuntimeError, match="input_model"):
         validate(_spec(input_model=dict), origin="test")
@@ -96,12 +101,14 @@ def test_research_flows_are_registered():
     registry = discover()
     assert {"enrich-company", "enrich-contacts", "team-communications"} <= set(registry)
     assert registry["enrich-company"].mode == "sync"
+    assert registry["enrich-company"].kind == "node"
 
 
 def test_crm_and_orchestrator_flows_are_registered():
     registry = discover()
     assert {"crm-company", "crm-contact", "crm-note", "discovery-call-booked"} <= set(registry)
     assert registry["discovery-call-booked"].mode == "async"
+    assert registry["discovery-call-booked"].kind == "workflow"
 
 
 def test_sync_hubspot_to_alma_is_registered_and_async():

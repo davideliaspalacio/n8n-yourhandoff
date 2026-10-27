@@ -20,6 +20,7 @@ from pydantic import BaseModel
 
 SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 MODES = ("sync", "async")
+KINDS = ("workflow", "node")
 
 
 @dataclass(frozen=True)
@@ -31,6 +32,8 @@ class FlowSpec:
     title: str
     input_model: type[BaseModel]
     run: Callable[..., Awaitable[Any]]  # async def run(clients, data) -> Any
+    # "workflow": pipeline completo que se dispara desde fuera | "node": subflujo reutilizable
+    kind: str = "workflow"
     mode: str = "sync"  # "sync": respuesta directa | "async": 202 + run_id
     replaces: str = ""  # workflow de n8n que sustituye
     summary: str = ""  # una línea para Swagger y el dashboard
@@ -45,6 +48,8 @@ def validate(spec: FlowSpec, *, origin: str) -> None:
         raise RuntimeError(f"{origin}: slug inválido {spec.slug!r} (kebab-case: a-z, 0-9, '-')")
     if spec.mode not in MODES:
         raise RuntimeError(f"{origin}: mode inválido {spec.mode!r} (usa 'sync' o 'async')")
+    if spec.kind not in KINDS:
+        raise RuntimeError(f"{origin}: kind inválido {spec.kind!r} (usa 'workflow' o 'node')")
     if not (isinstance(spec.input_model, type) and issubclass(spec.input_model, BaseModel)):
         raise RuntimeError(f"{origin}: input_model debe ser un modelo Pydantic")
     _validate_graph(spec, origin=origin)

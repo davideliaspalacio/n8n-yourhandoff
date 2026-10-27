@@ -42,6 +42,7 @@ spec = FlowSpec(
     input_model={cls}Input,
     response_model={cls}Result,
     run=run,
+    kind="{kind}",  # "workflow": se dispara desde fuera | "node": subflujo reutilizable
     mode="sync",  # "async" si debe responder 202 + run_id
     replaces="{replaces}",
     summary="TODO: one line for Swagger",
@@ -101,7 +102,12 @@ def test_spec_registrado():
 
 
 def create_flow(
-    slug: str, *, title: str | None = None, replaces: str = "", root: Path = Path(".")
+    slug: str,
+    *,
+    title: str | None = None,
+    replaces: str = "",
+    kind: str = "workflow",
+    root: Path = Path("."),
 ) -> list[Path]:
     if not SLUG_RE.fullmatch(slug):
         raise ValueError(f"slug inválido {slug!r} (kebab-case: empieza por letra; a-z, 0-9, '-')")
@@ -110,6 +116,8 @@ def create_flow(
     for name, value in (("title", title), ("replaces", replaces)):
         if value and ('"' in value or "\\" in value):
             raise ValueError(f'{name} no puede contener " ni \\: {value!r}')
+    if kind not in ("workflow", "node"):
+        raise ValueError(f"kind inválido {kind!r} (usa 'workflow' o 'node')")
     pkg = slug.replace("-", "_")
     cls = "".join(p.capitalize() for p in slug.split("-"))
     title = title or " ".join(p.capitalize() for p in slug.split("-"))
@@ -119,7 +127,10 @@ def create_flow(
     pkg_dir.mkdir(parents=True)
     tests_dir = root / "tests" / "flows"
     tests_dir.mkdir(parents=True, exist_ok=True)
-    ctx = {"slug": slug, "pkg": pkg, "cls": cls, "title": title, "replaces": replaces or "TODO"}
+    ctx = {
+        "slug": slug, "pkg": pkg, "cls": cls, "title": title,
+        "replaces": replaces or "TODO", "kind": kind,
+    }
     files = {
         pkg_dir / "flow.py": FLOW_PY,
         pkg_dir / "schemas.py": SCHEMAS_PY,
@@ -137,8 +148,9 @@ def main() -> None:
     parser.add_argument("slug", help="kebab-case, p. ej. lead-scoring")
     parser.add_argument("--title", default=None)
     parser.add_argument("--replaces", default="", help="nombre del workflow de n8n")
+    parser.add_argument("--kind", choices=("workflow", "node"), default="workflow")
     args = parser.parse_args()
-    for path in create_flow(args.slug, title=args.title, replaces=args.replaces):
+    for path in create_flow(args.slug, title=args.title, replaces=args.replaces, kind=args.kind):
         print(f"  creado {path}")
     print("\nSiguiente: rellenar schemas.py, flow.py y el test. Ver CLAUDE.md.")
 

@@ -330,6 +330,7 @@ async def run(clients: Clients, data: DiscoveryCallInput) -> dict:
 
 spec = FlowSpec(
     slug="discovery-call-booked",
+    kind="workflow",
     title="Discovery Call Booked",
     input_model=DiscoveryCallInput,
     run=run,

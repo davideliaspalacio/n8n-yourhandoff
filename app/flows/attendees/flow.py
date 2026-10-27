@@ -141,6 +141,7 @@ async def run(clients: Clients, data: ContactsRequest) -> list[EnrichedContact]:
 
 spec = FlowSpec(
     slug="enrich-contacts",
+    kind="node",
     title="Enrich External Attendees",
     input_model=ContactsRequest,
     response_model=list[EnrichedContact],
