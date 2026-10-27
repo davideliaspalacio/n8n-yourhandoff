@@ -10,3 +10,36 @@ async def test_replay_of_round_trip():
     replay = await store.create("echo", {"text": "hola"}, replay_of=original)
     assert (await store.get(replay))["replay_of"] == original
     assert (await store.get(original))["replay_of"] is None
+
+
+async def _seed(store: MemoryRunStore) -> list[str]:
+    ids = []
+    for i in range(3):
+        rid = await store.create("echo", {"i": i})
+        await store.finish(rid, "succeeded" if i % 2 == 0 else "failed")
+        ids.append(rid)
+    ids.append(await store.create("otro", {}))
+    return ids
+
+
+async def test_list_runs_filters_and_paginates():
+    store = MemoryRunStore()
+    ids = await _seed(store)
+    page = await store.list_runs(flow="echo")
+    assert page["total"] == 3 and len(page["items"]) == 3
+    assert page["items"][0]["id"] == ids[2]  # más reciente primero
+    assert set(page["items"][0]) == {
+        "id", "flow", "status", "dry_run", "replay_of", "error", "created_at", "finished_at",
+    }
+    failed = await store.list_runs(flow="echo", status="failed")
+    assert failed["total"] == 1
+    p2 = await store.list_runs(flow="echo", page=2, per_page=2)
+    assert p2["total"] == 3 and len(p2["items"]) == 1
+
+
+async def test_list_runs_since_until():
+    store = MemoryRunStore()
+    await _seed(store)
+    cutoff = (await store.list_runs())["items"][0]["created_at"]
+    assert (await store.list_runs(since=cutoff))["total"] == 1
+    assert (await store.list_runs(until=cutoff))["total"] == 4

@@ -49,6 +49,16 @@ class RunStore(Protocol):
         meta: dict | None = None,
     ) -> None: ...
     async def get(self, run_id: str) -> dict | None: ...
+    async def list_runs(
+        self,
+        *,
+        flow: str | None = None,
+        status: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
+        page: int = 1,
+        per_page: int = 50,
+    ) -> dict: ...
     async def fail_orphans(self) -> int: ...
     async def close(self) -> None: ...
 
@@ -60,6 +70,12 @@ def _now() -> str:
 def _jsonable(value: Any) -> Any:
     """Pydantic, Decimal y datetime a JSON sin perder nada útil."""
     return json.loads(json.dumps(value, default=_default))
+
+
+def _run_summary(run: dict) -> dict:
+    """Campos de un run para listados: sin steps ni costes, que son del detalle."""
+    keys = ("id", "flow", "status", "dry_run", "replay_of", "error", "created_at", "finished_at")
+    return {k: run.get(k) for k in keys}
 
 
 def _default(value: Any) -> Any:
@@ -132,6 +148,41 @@ class MemoryRunStore:
         if run is None:
             return None
         return {**run, "total_cost_usd": round(sum(c["cost_usd"] for c in run["costs"]), 6)}
+
+    async def list_runs(
+        self,
+        *,
+        flow: str | None = None,
+        status: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
+        page: int = 1,
+        per_page: int = 50,
+    ) -> dict:
+        def keep(r: dict) -> bool:
+            if flow and r["flow"] != flow:
+                return False
+            if status and r["status"] != status:
+                return False
+            # ISO-8601 UTC: comparar como texto equivale a comparar fechas.
+            if since and r["created_at"] < since:
+                return False
+            if until and r["created_at"] > until:
+                return False
+            return True
+
+        rows = sorted(
+            (r for r in self._runs.values() if keep(r)),
+            key=lambda r: r["created_at"],
+            reverse=True,
+        )
+        start = (page - 1) * per_page
+        return {
+            "items": [_run_summary(r) for r in rows[start : start + per_page]],
+            "total": len(rows),
+            "page": page,
+            "per_page": per_page,
+        }
 
     async def fail_orphans(self) -> int:
         return 0
@@ -241,6 +292,54 @@ class PostgresRunStore:
         run["costs"] = costs
         run["total_cost_usd"] = round(sum(c["cost_usd"] for c in costs), 6)
         return run
+
+    async def list_runs(
+        self,
+        *,
+        flow: str | None = None,
+        status: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
+        page: int = 1,
+        per_page: int = 50,
+    ) -> dict:
+        where, params = [], []
+        if flow:
+            where.append("flow = %s")
+            params.append(flow)
+        if status:
+            where.append("status = %s")
+            params.append(status)
+        if since:
+            where.append("created_at >= %s::timestamptz")
+            params.append(since)
+        if until:
+            where.append("created_at <= %s::timestamptz")
+            params.append(until)
+        cond = (" where " + " and ".join(where)) if where else ""
+        async with self._pool.connection() as conn:
+            cur = await conn.execute(f"select count(*) from flow_runs{cond}", tuple(params))
+            total = (await cur.fetchone())[0]
+            cur = await conn.execute(
+                "select id::text, flow, status, dry_run, replay_of::text, error,"
+                f" created_at, finished_at from flow_runs{cond}"
+                " order by created_at desc limit %s offset %s",
+                tuple(params) + (per_page, (page - 1) * per_page),
+            )
+            items = [
+                {
+                    "id": r[0],
+                    "flow": r[1],
+                    "status": r[2],
+                    "dry_run": r[3],
+                    "replay_of": r[4],
+                    "error": r[5],
+                    "created_at": r[6].isoformat(),
+                    "finished_at": r[7].isoformat() if r[7] else None,
+                }
+                for r in await cur.fetchall()
+            ]
+        return {"items": items, "total": total, "page": page, "per_page": per_page}
 
     async def fail_orphans(self) -> int:
         async with self._pool.connection() as conn:

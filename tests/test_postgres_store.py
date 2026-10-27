@@ -5,6 +5,7 @@
 """
 
 import os
+import uuid
 from decimal import Decimal
 
 import pytest
@@ -54,3 +55,26 @@ async def test_replay_of_round_trip(pg):
     replay = await pg.create("echo", {"text": "hola"}, replay_of=original)
     assert (await pg.get(replay))["replay_of"] == original
     assert (await pg.get(original))["replay_of"] is None
+
+
+async def test_list_runs_filters_and_paginates(pg):
+    # Flow único por ejecución: la base puede tener runs de otros tests.
+    flow = f"list_test_{uuid.uuid4().hex}"
+    ids = []
+    for i in range(3):
+        rid = await pg.create(flow, {"i": i})
+        await pg.finish(rid, SUCCEEDED if i % 2 == 0 else FAILED)
+        ids.append(rid)
+    page = await pg.list_runs(flow=flow)
+    assert page["total"] == 3 and len(page["items"]) == 3
+    assert page["items"][0]["id"] == ids[2]  # más reciente primero
+    assert set(page["items"][0]) == {
+        "id", "flow", "status", "dry_run", "replay_of", "error", "created_at", "finished_at",
+    }
+    failed = await pg.list_runs(flow=flow, status=FAILED)
+    assert failed["total"] == 1
+    p2 = await pg.list_runs(flow=flow, page=2, per_page=2)
+    assert p2["total"] == 3 and len(p2["items"]) == 1
+    cutoff = page["items"][0]["created_at"]
+    assert (await pg.list_runs(flow=flow, since=cutoff))["total"] == 1
+    assert (await pg.list_runs(flow=flow, until=cutoff))["total"] == 3
