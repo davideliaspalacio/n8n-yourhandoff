@@ -32,7 +32,9 @@ FAILED = "failed"
 
 
 class RunStore(Protocol):
-    async def create(self, flow: str, input: dict, *, dry_run: bool = False) -> str: ...
+    async def create(
+        self, flow: str, input: dict, *, dry_run: bool = False, replay_of: str | None = None
+    ) -> str: ...
     async def step(self, run_id: str, name: str, status: str, detail: Any = None) -> None: ...
     async def finish(
         self, run_id: str, status: str, *, output: Any = None, error: str | None = None
@@ -74,13 +76,16 @@ class MemoryRunStore:
     def __init__(self) -> None:
         self._runs: dict[str, dict] = {}
 
-    async def create(self, flow: str, input: dict, *, dry_run: bool = False) -> str:
+    async def create(
+        self, flow: str, input: dict, *, dry_run: bool = False, replay_of: str | None = None
+    ) -> str:
         run_id = str(uuid.uuid4())
         self._runs[run_id] = {
             "id": run_id,
             "flow": flow,
             "status": RUNNING,
             "dry_run": dry_run,
+            "replay_of": replay_of,
             "input": _jsonable(input),
             "output": None,
             "error": None,
@@ -158,11 +163,14 @@ class PostgresRunStore:
         async with self._pool.connection() as conn:
             await conn.execute(sql, params)
 
-    async def create(self, flow: str, input: dict, *, dry_run: bool = False) -> str:
+    async def create(
+        self, flow: str, input: dict, *, dry_run: bool = False, replay_of: str | None = None
+    ) -> str:
         run_id = str(uuid.uuid4())
         await self._exec(
-            "insert into flow_runs (id, flow, status, dry_run, input) values (%s,%s,%s,%s,%s)",
-            (run_id, flow, RUNNING, dry_run, json.dumps(_jsonable(input))),
+            "insert into flow_runs (id, flow, status, dry_run, input, replay_of)"
+            " values (%s,%s,%s,%s,%s,%s)",
+            (run_id, flow, RUNNING, dry_run, json.dumps(_jsonable(input)), replay_of),
         )
         return run_id
 
@@ -203,8 +211,8 @@ class PostgresRunStore:
             return None
         async with self._pool.connection() as conn:
             cur = await conn.execute(
-                "select id::text, flow, status, dry_run, input, output, error, steps,"
-                " created_at, finished_at from flow_runs where id = %s",
+                "select id::text, flow, status, dry_run, replay_of::text, input, output, error,"
+                " steps, created_at, finished_at from flow_runs where id = %s",
                 (run_id,),
             )
             row = await cur.fetchone()
@@ -226,10 +234,10 @@ class PostgresRunStore:
                 }
                 for c in await cur.fetchall()
             ]
-        keys = ["id", "flow", "status", "dry_run", "input", "output", "error", "steps"]
-        run = dict(zip(keys, row[:8], strict=True))
-        run["created_at"] = row[8].isoformat()
-        run["finished_at"] = row[9].isoformat() if row[9] else None
+        keys = ["id", "flow", "status", "dry_run", "replay_of", "input", "output", "error", "steps"]
+        run = dict(zip(keys, row[:9], strict=True))
+        run["created_at"] = row[9].isoformat()
+        run["finished_at"] = row[10].isoformat() if row[10] else None
         run["costs"] = costs
         run["total_cost_usd"] = round(sum(c["cost_usd"] for c in costs), 6)
         return run
