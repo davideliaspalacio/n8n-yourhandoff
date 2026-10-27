@@ -43,11 +43,13 @@ async def _fetch_emails(clients: Clients, contacts: list[str]) -> list[CleanEmai
     return clean_messages(raw)
 
 
-async def _fetch_meetings(clients: Clients, contacts: list[str]) -> list[str]:
+async def fetch_meetings(clients: Clients, contacts: list[str]) -> list[str]:
+    """Short summaries de Fireflies (más recientes por email); degrada a [] si falla."""
     if not clients.settings.fireflies_api_key:
+        await record_step("fireflies", "skipped", {"reason": "FIREFLIES_API_KEY not set"})
         return []
     try:
-        return await clients.fireflies.short_summaries(
+        meetings = await clients.fireflies.short_summaries(
             contacts, clients.settings.fireflies_transcripts_per_email
         )
     except Exception as exc:
@@ -55,6 +57,8 @@ async def _fetch_meetings(clients: Clients, contacts: list[str]) -> list[str]:
         logger.warning("fireflies failed: %s", exc)
         await record_step("fireflies", "degraded", {"error": str(exc)})
         return []
+    await record_step("fireflies", "succeeded", {"summaries": len(meetings)})
+    return meetings
 
 
 def build_prompt(base: str, emails: list[CleanEmail], meetings: list[str]) -> str:
@@ -80,7 +84,7 @@ async def search_team_communications(clients: Clients, emails: list[str]) -> Com
         )
 
     found, meetings = await asyncio.gather(
-        _fetch_emails(clients, contacts), _fetch_meetings(clients, contacts)
+        _fetch_emails(clients, contacts), fetch_meetings(clients, contacts)
     )
     found = [e for e in found if e.body]
     if not found and not meetings:

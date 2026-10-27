@@ -120,26 +120,49 @@ def build_prompt(base: str, linkedin: dict, news: list[dict], jobs: list[dict]) 
 
 
 async def _search(clients: Clients, engine: str, query: str) -> list[dict]:
+    step = f"serpapi_{engine}"
     if not clients.settings.serpapi_api_key or not query:
+        await record_step(step, "skipped", {"query": query})
         return []
     try:
-        return await clients.serpapi.search(engine, query)
+        results = await clients.serpapi.search(engine, query)
     except Exception as exc:
         logger.warning("serpapi %s failed: %s", engine, exc)
-        await record_step(f"serpapi_{engine}", "degraded", {"error": str(exc)})
+        await record_step(step, "degraded", {"error": str(exc)})
         return []
+    await record_step(step, "succeeded", {"results": len(results)})
+    return results
 
 
-async def enrich_company(clients: Clients, company_url: str) -> CompanyEnrichment:
+async def _apollo_blocks(clients: Clients, company_url: str) -> tuple[dict | None, dict, dict]:
+    """Apollo por dominio → (org cruda, bloque `linkedIn`, bloque `crm`)."""
     domain = domain_of(company_url)
     org = await clients.apollo.enrich_organization(domain) if domain else None
+    await record_step("apollo", "succeeded", {"found": bool(org)})
     linkedin, crm = map_organization(org or {}, company_url)
-    name = linkedin["name"] or company_name_from_url(company_url)
+    return org, linkedin, crm
 
+
+async def linkedin_data(clients: Clients, company_url: str) -> dict:
+    """Sustituye al subflujo «Get LinkedIn Data»: `{foundLinkedIn, linkedIn, crm}`."""
+    org, linkedin, crm = await _apollo_blocks(clients, company_url)
+    return {"foundLinkedIn": bool(org), "linkedIn": linkedin, "crm": crm}
+
+
+async def news_jobs_search(clients: Clients, name: str) -> tuple[list[dict], list[dict]]:
+    """Sustituye al subflujo «News + Job Search»: (noticias, empleos) de Google."""
     news, jobs = await asyncio.gather(
         _search(clients, "google_news", f'"{name}"' if name else ""),
         _search(clients, "google_jobs", name),
     )
+    return news, jobs
+
+
+async def enrich_company(clients: Clients, company_url: str) -> CompanyEnrichment:
+    org, linkedin, crm = await _apollo_blocks(clients, company_url)
+    name = linkedin["name"] or company_name_from_url(company_url)
+
+    news, jobs = await news_jobs_search(clients, name)
 
     base = await clients.alma.get_prompt(PROMPT_TITLE)
     result = await clients.llm.complete_json(

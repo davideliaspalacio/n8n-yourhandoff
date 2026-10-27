@@ -122,7 +122,7 @@ def test_sync_hubspot_to_alma_is_registered_and_async():
 
 def test_every_real_flow_has_a_description():
     registry = discover()
-    assert len(registry) == 9
+    assert len(registry) == 12
     for slug, spec in registry.items():
         assert spec.description.strip(), f"{slug} sin description"
         for node in spec.graph:
@@ -139,3 +139,9 @@ def test_graph_bad_about_is_rejected(about):
 def test_graph_about_is_optional_and_accepted():
     graph = ({"id": "a", "about": "Does a."}, {"id": "b", "to": ()})
     validate(_spec(graph=graph), origin="test")
+
+
+@pytest.mark.parametrize("slug", ["linkedin-data", "news-jobs-search", "fireflies-summaries"])
+def test_extracted_nodes_are_registered_as_sync_nodes(slug):
+    spec = discover()[slug]
+    assert (spec.mode, spec.kind) == ("sync", "node")
