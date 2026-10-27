@@ -24,7 +24,7 @@ Sin `DATABASE_URL` los runs viven en memoria. Con ella, el servicio aplica
 `migrations/*.sql` (idempotentes) al arrancar.
 
 ```bash
-uv run pytest                                  # 41 tests, sin red
+uv run pytest                                  # suite completa, sin red
 TEST_DATABASE_URL=postgresql://... uv run pytest tests/test_postgres_store.py
 uv run ruff check .
 ```
