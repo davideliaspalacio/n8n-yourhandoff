@@ -49,12 +49,12 @@ class AlmaClient(BaseClient):
         ]
 
     async def find(self, table: str, **eq_filters: Any) -> list[dict]:
-        """Filas de `table` que cumplen todos los `columna=valor` (igualdad)."""
+        """Ids de las filas de `table` que cumplen todos los `columna=valor` (igualdad)."""
         rows = await self._request(
             "GET",
             self._url(table),
             headers=self._headers(),
-            params={**{k: f"eq.{v}" for k, v in eq_filters.items()}, "select": "*"},
+            params={**{k: f"eq.{v}" for k, v in eq_filters.items()}, "select": "id"},
         )
         return rows or []
 

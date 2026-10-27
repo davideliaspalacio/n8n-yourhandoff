@@ -1,3 +1,5 @@
+import json
+
 import httpx
 import pytest
 
@@ -92,6 +94,24 @@ async def test_happy_path(clients, mock, store):
     assert '"value":"1000"' in body.replace(" ", "")
     assert env.contacts.calls[0].request.url.params["on_conflict"] == "hubspot_id"
     assert "merge-duplicates" in env.contacts.calls[0].request.headers["Prefer"]
+    body = json.loads(env.companies.calls[0].request.content)
+    assert body["hubspot_id"] == "77" and body["company_name"] == "Nido"
+    assert body["url"] == "staynido.com" and "logo_url" in body and body["last_synced"]
+    body = json.loads(env.contacts.calls[0].request.content)
+    assert body | {"last_synced": None} == {
+        "hubspot_id": "3",
+        "email": "ok@staynido.com",
+        "first_name": "A",
+        "last_name": "B",
+        "title": "CEO",
+        "phone": "1",
+        "last_synced": None,
+    }
+    assert env.lookup.calls[0].request.url.params["hubspot_id"] == "eq.77"
+    assert json.loads(env.links.calls[0].request.content) == {
+        "contact_id": "ct-1",
+        "company_id": "co-1",
+    }
     names = [s["name"] for s in run_["steps"]]
     assert names == ["hubspot_search", "filter", "companies_upsert", "contacts_upsert"]
 
@@ -149,3 +169,18 @@ async def test_hubspot_search_failure_fails_the_run(clients, mock, store):
     mock.post(f"{HS}/crm/v3/objects/contacts/search").mock(return_value=httpx.Response(401))
     with pytest.raises(ProviderError):
         await go(clients, store, since="1000")
+
+
+async def test_shared_company_is_fetched_and_upserted_once(clients, mock, store):
+    env = Env(mock, [page([contact("3", "a@x.com", "77"), contact("4", "b@x.com", "77")])])
+    company_get = mock.routes[1]  # el GET de HubSpot de la empresa 77
+    result, _ = await go(clients, store, since="1000")
+    assert company_get.call_count == 1
+    assert env.companies.call_count == 1 and result.companies_upserted == 1
+    assert env.contacts.call_count == 2 and env.links.call_count == 2
+    assert result.contacts_upserted == 2 and result.links_upserted == 2
+
+
+def test_malformed_since_is_rejected():
+    with pytest.raises(ValueError):
+        SyncHubspotToAlmaInput(since="yesterday")

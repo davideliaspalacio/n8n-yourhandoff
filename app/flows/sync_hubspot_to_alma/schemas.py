@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 from datetime import UTC, datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 DEFAULT_WINDOW_MS = 60 * 60 * 1000  # el cron corre cada hora
 
@@ -30,6 +30,16 @@ class SyncHubspotToAlmaInput(BaseModel):
     dry_run: bool = Field(
         default=False, description="Read everything but write nothing to Alma; return a preview."
     )
+
+    @field_validator("since")
+    @classmethod
+    def _valid_since(cls, value: str | None) -> str | None:
+        # Un `since` mal formado debe dar 422, no un run fallido opaco.
+        try:
+            since_to_epoch_ms(value)
+        except ValueError as exc:
+            raise ValueError("since must be ISO-8601 or epoch milliseconds") from exc
+        return value
 
 
 class SyncHubspotToAlmaResult(BaseModel):
