@@ -28,26 +28,31 @@ tr.link { cursor:pointer; }
 pre { background:var(--bs-tertiary-bg); border:1px solid var(--bs-border-color);
   border-radius:var(--bs-border-radius); padding:.75rem; overflow:auto; font-size:.8rem;
   max-height:22rem; margin:0; }
-/* pipeline */
-.pipe { display:flex; flex-wrap:wrap; align-items:center; gap:.6rem .25rem; padding:.25rem 0; }
-.node { display:inline-flex; align-items:center; gap:.5rem; padding:.55rem .9rem;
-  background:var(--bs-body-bg); color:var(--bs-body-color); font:inherit; font-weight:500;
-  border:2px solid var(--bs-warning); border-radius:.75rem; cursor:pointer;
-  transition:box-shadow .15s, transform .15s; }
-.node:hover { box-shadow:0 .25rem .75rem rgba(0,0,0,.15); transform:translateY(-1px); }
-.node.succeeded { border-color:var(--bs-success); } .node.failed { border-color:var(--bs-danger); }
-.node.sel { box-shadow:0 0 0 .25rem rgba(var(--bs-primary-rgb), .25); }
-.node .ico { display:inline-flex; align-items:center; justify-content:center; width:1.4rem;
-  height:1.4rem; border-radius:50%; font-size:.8rem; font-weight:700; color:#fff;
-  background:var(--bs-warning); }
-.node.succeeded .ico { background:var(--bs-success); } .node.failed .ico { background:var(--bs-danger); }
-.arrow { display:inline-flex; align-items:center; width:1.6rem; color:var(--bs-secondary-color);
-  justify-content:center; }
+/* pipeline canvas */
+.pipe-cv { position:relative; height:320px; border:1px solid var(--bs-border-color);
+  border-radius:var(--bs-border-radius); overflow:hidden; background-color:var(--bs-body-bg);
+  background-image:radial-gradient(circle, var(--bs-border-color) 1px, transparent 1.2px);
+  background-size:18px 18px; }
+.pipe-cv svg { width:100%; height:100%; display:block; cursor:grab; touch-action:none;
+  user-select:none; }
+.pipe-cv svg.panning { cursor:grabbing; }
+.pipe-cv .fit { position:absolute; top:.5rem; right:.5rem; z-index:1; }
+.cv-edge { fill:none; stroke:var(--bs-secondary-color); stroke-width:2; }
+.cv-port { fill:var(--bs-body-bg); stroke:var(--bs-secondary-color); stroke-width:2; }
+.cv-node { cursor:pointer; outline:none; }
+.cv-node .box { fill:var(--bs-body-bg); stroke:var(--bs-warning); stroke-width:2; }
+.cv-node .bar, .cv-node .ico { fill:var(--bs-warning); }
+.cv-node.succeeded .box { stroke:var(--bs-success); } .cv-node.failed .box { stroke:var(--bs-danger); }
+.cv-node.succeeded .bar, .cv-node.succeeded .ico { fill:var(--bs-success); }
+.cv-node.failed .bar, .cv-node.failed .ico { fill:var(--bs-danger); }
+.cv-node:hover .box, .cv-node:focus-visible .box { stroke-width:3; }
+.cv-node.sel .box { stroke-width:3.5; filter:drop-shadow(0 0 6px var(--bs-primary)); }
+.cv-node text { fill:var(--bs-body-color); font:500 13px var(--bs-font-sans-serif); pointer-events:none; }
+.cv-node text.glyph { fill:#fff; font-weight:700; font-size:12px; text-anchor:middle; }
 .pipe-detail { background:var(--bs-body-bg); border:1px solid var(--bs-border-color);
   border-radius:var(--bs-border-radius); padding:.9rem 1rem; margin:.75rem 0 0;
   box-shadow:var(--bs-box-shadow-sm); }
 .pipe-detail pre { margin:.6rem 0 0; }
-@media (max-width:575.98px) { .arrow { transform:none; width:1rem; } }
 </style>
 </head>
 <body>
@@ -93,26 +98,111 @@ const statusCell = (s, big) => `<span class="badge ${badgeCls(s)}${big ? ' fs-6'
 const empty = html => `<div class="empty">${html}</div>`;
 const pill = t => `<span class="badge rounded-pill text-bg-light border">${esc(t)}</span>`;
 
-// n8n-style pipeline: connected nodes, click a node to toggle its detail panel.
-// Steps are kept in a registry so onclick only passes small numeric ids.
+// n8n-style pipeline: SVG canvas of connected nodes (auto-layout, serpentine rows),
+// pan/zoom via viewBox, click a node to toggle its detail panel.
+// Pipes are kept in a registry so handlers only pass small numeric ids.
 const pipes = [];
+const NW = 190, NH = 60, GX = 230, GY = 120, PER_ROW = 8, PAD = 50;
+function wrapName(name) {
+  const max = 17, lines = [''];
+  for (const t of String(name ?? '').split(/\s+/).filter(Boolean)) {
+    const cur = lines[lines.length - 1];
+    if (!cur) lines[lines.length - 1] = t;
+    else if ((cur + ' ' + t).length <= max) lines[lines.length - 1] = cur + ' ' + t;
+    else lines.push(t);
+  }
+  const rest = lines.slice(1).join(' ');
+  const out = [lines[0], rest].filter(Boolean);
+  return out.map(l => l.length > max ? l.slice(0, max - 1) + '…' : l);
+}
 function pipelineHtml(steps) {
   steps = steps || [];
   if (!steps.length) return empty('No steps recorded.');
-  const pid = pipes.push(steps) - 1;
+  const pid = pipes.length;
+  const pos = steps.map((_, i) => ({ x: (i % PER_ROW) * GX, y: Math.floor(i / PER_ROW) * GY }));
+  const xs = pos.map(p => p.x), ys = pos.map(p => p.y);
+  const fit = { x: Math.min(...xs) - PAD, y: Math.min(...ys) - PAD,
+    w: Math.max(...xs) + NW + PAD * 2, h: Math.max(...ys) + NH + PAD * 2 };
+  pipes.push({ steps, vb: { ...fit }, fit });
   const cls = s => s === 'succeeded' || s === 'failed' ? s : 'other';
-  const ico = s => s === 'succeeded' ? '✓' : s === 'failed' ? '✗' : '●';
-  return `<div class="pipe" id="pipe-${pid}">` + steps.map((s, i) =>
-    (i ? '<span class="arrow">&#10230;</span>' : '') +
-    `<button type="button" class="node ${cls(s.status)}" onclick="showStep(${pid}, ${i})"
-       title="${esc(s.status)}"><span class="ico">${ico(s.status)}</span>
-       <span>${esc(s.name)}</span></button>`).join('') +
-    `</div><div class="pipe-detail" id="pipe-detail-${pid}" hidden></div>`;
+  const glyph = s => s === 'succeeded' ? '✓' : s === 'failed' ? '✗' : '●';
+  const edges = pos.slice(1).map((b, k) => {
+    const a = pos[k], x1 = a.x + NW, y1 = a.y + NH / 2, x2 = b.x, y2 = b.y + NH / 2;
+    const dx = Math.max(60, Math.abs(x2 - x1) / 2);
+    return `<path class="cv-edge" d="M${x1} ${y1} C${x1 + dx} ${y1} ${x2 - dx} ${y2} ${x2} ${y2}"/>`;
+  }).join('');
+  const nodes = steps.map((s, i) => {
+    const { x, y } = pos[i], lines = wrapName(s.name);
+    const ty = lines.length > 1 ? y + 27 : y + 35;
+    return `<g class="cv-node ${cls(s.status)}" data-i="${i}" tabindex="0" role="button"
+        aria-label="${esc(s.name)}: ${esc(s.status)}">
+      <title>${esc(s.name)} — ${esc(s.status)}</title>
+      <rect class="box" x="${x}" y="${y}" width="${NW}" height="${NH}" rx="10"/>
+      <rect class="bar" x="${x + 1}" y="${y + 6}" width="6" height="${NH - 12}" rx="3"/>
+      <circle class="ico" cx="${x + 26}" cy="${y + NH / 2}" r="10"/>
+      <text class="glyph" x="${x + 26}" y="${y + NH / 2 + 4.5}">${glyph(s.status)}</text>
+      ${lines.map((l, j) => `<text x="${x + 44}" y="${ty + j * 16}">${esc(l)}</text>`).join('')}
+      <circle class="cv-port" cx="${x}" cy="${y + NH / 2}" r="5"/>
+      <circle class="cv-port" cx="${x + NW}" cy="${y + NH / 2}" r="5"/>
+    </g>`;
+  }).join('');
+  return `<div class="pipe-cv" id="pipe-${pid}" data-pid="${pid}">
+    <button type="button" class="btn btn-sm btn-outline-secondary fit" onclick="fitPipe(${pid})">Fit</button>
+    <svg viewBox="${fit.x} ${fit.y} ${fit.w} ${fit.h}" role="group" aria-label="Process steps">
+      <g>${edges}</g><g>${nodes}</g></svg></div>
+    <div class="pipe-detail" id="pipe-detail-${pid}" hidden></div>`;
 }
+function applyPipeVb(pid) {
+  const el = document.querySelector(`#pipe-${pid} svg`), v = pipes[pid].vb;
+  if (el) el.setAttribute('viewBox', `${v.x} ${v.y} ${v.w} ${v.h}`);
+}
+function fitPipe(pid) { pipes[pid].vb = { ...pipes[pid].fit }; applyPipeVb(pid); }
+// viewBox <-> screen mapping (preserveAspectRatio "meet": uniform scale, centred)
+function pipeMap(svg, v) {
+  const r = svg.getBoundingClientRect(), k = Math.min(r.width / v.w, r.height / v.h) || 1;
+  return { r, k, ox: (r.width - v.w * k) / 2, oy: (r.height - v.h * k) / 2 };
+}
+let pan = null;
+const pipeOf = e => { const c = e.target.closest && e.target.closest('.pipe-cv'); return c ? c : null; };
+document.addEventListener('pointerdown', e => {
+  const c = pipeOf(e);
+  if (!c || e.target.closest('.cv-node') || e.target.closest('button')) return;
+  const svg = c.querySelector('svg'), pid = Number(c.dataset.pid), v = pipes[pid].vb;
+  pan = { pid, svg, px: e.clientX, py: e.clientY, vx: v.x, vy: v.y, k: pipeMap(svg, v).k };
+  svg.classList.add('panning'); svg.setPointerCapture(e.pointerId);
+});
+document.addEventListener('pointermove', e => {
+  if (!pan) return;
+  const v = pipes[pan.pid].vb;
+  v.x = pan.vx - (e.clientX - pan.px) / pan.k; v.y = pan.vy - (e.clientY - pan.py) / pan.k;
+  applyPipeVb(pan.pid);
+});
+['pointerup', 'pointercancel'].forEach(t => document.addEventListener(t, () => {
+  if (pan) pan.svg.classList.remove('panning'); pan = null; }));
+document.addEventListener('wheel', e => {
+  const c = pipeOf(e); if (!c) return;
+  e.preventDefault();
+  const svg = c.querySelector('svg'), p = pipes[Number(c.dataset.pid)], v = p.vb;
+  const f = e.deltaY > 0 ? 1.12 : 0.89;
+  if (v.w * f < p.fit.w / 8 || v.w * f > p.fit.w * 4) return;
+  const m = pipeMap(svg, v);
+  const px = v.x + (e.clientX - m.r.left - m.ox) / m.k, py = v.y + (e.clientY - m.r.top - m.oy) / m.k;
+  v.x = px - (px - v.x) * f; v.y = py - (py - v.y) * f; v.w *= f; v.h *= f;
+  applyPipeVb(Number(c.dataset.pid));
+}, { passive: false });
+document.addEventListener('click', e => {
+  const n = e.target.closest && e.target.closest('.cv-node'), c = n && n.closest('.pipe-cv');
+  if (c) showStep(Number(c.dataset.pid), Number(n.dataset.i));
+});
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const n = e.target.closest && e.target.closest('.cv-node');
+  if (n) { e.preventDefault(); n.dispatchEvent(new MouseEvent('click', { bubbles: true })); }
+});
 function showStep(pid, i) {
   const box = document.getElementById('pipe-detail-' + pid);
-  const nodes = document.querySelectorAll(`#pipe-${pid} .node`);
-  const s = pipes[pid][i];
+  const nodes = document.querySelectorAll(`#pipe-${pid} .cv-node`);
+  const s = pipes[pid].steps[i];
   const same = box.dataset.sel === String(i) && !box.hidden;
   nodes.forEach((n, j) => n.classList.toggle('sel', !same && j === i));
   box.dataset.sel = String(i);

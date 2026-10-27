@@ -8,6 +8,8 @@ async def test_ui_ships_pipeline_view(api):
     r = await api.get("/ui/")
     assert "pipelineHtml" in r.text
     assert "flows/" in r.text
+    assert "<svg" in r.text and "cv-node" in r.text
+    assert "fitPipe" in r.text
 
 
 async def test_ui_references_vendored_bootstrap(api):
