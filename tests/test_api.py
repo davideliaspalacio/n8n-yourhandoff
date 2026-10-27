@@ -63,6 +63,23 @@ async def test_sync_endpoint_returns_run_id_and_records_cost(api, mock):
     assert run["status"] == "succeeded" and len(run["costs"]) == 4
 
 
+async def test_generic_route_matches_alias(api, mock):
+    World(mock)
+    alias = await api.post("/v1/companies/enrich", json={"companyUrl": "staynido.com"}, headers=H)
+    World(mock)
+    generic = await api.post(
+        "/v1/flows/enrich-company", json={"companyUrl": "staynido.com"}, headers=H
+    )
+    assert generic.status_code == 200
+    alias_body, generic_body = alias.json(), generic.json()
+    # generatedAt es un timestamp volátil generado en cada llamada; se excluye de la comparación.
+    alias_body["Company"].pop("generatedAt", None)
+    generic_body["Company"].pop("generatedAt", None)
+    assert generic_body == alias_body
+    run = (await api.get(f"/v1/runs/{generic.headers['X-Run-Id']}", headers=H)).json()
+    assert run["flow"] == "enrich-company" and run["status"] == "succeeded"
+
+
 async def test_missing_credential_is_503(api, settings, mock):
     settings.apollo_api_key = ""
     World(mock)

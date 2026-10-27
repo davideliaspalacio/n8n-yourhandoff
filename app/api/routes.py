@@ -113,7 +113,7 @@ async def communications_search(
     return await _run_sync(
         store,
         response,
-        "team_communications",
+        "team-communications",
         data,
         lambda: search_team_communications(clients, data.emails),
     )
@@ -133,7 +133,7 @@ async def contacts_enrich(
     clients: Clients = Depends(clients_dep),
 ):
     return await _run_sync(
-        store, response, "enrich_contacts", data, lambda: enrich_contacts(clients, data.emails)
+        store, response, "enrich-contacts", data, lambda: enrich_contacts(clients, data.emails)
     )
 
 
@@ -152,7 +152,7 @@ async def companies_enrich(
     clients: Clients = Depends(clients_dep),
 ):
     return await _run_sync(
-        store, response, "enrich_company", data, lambda: enrich_company(clients, data.companyUrl)
+        store, response, "enrich-company", data, lambda: enrich_company(clients, data.companyUrl)
     )
 
 
@@ -170,7 +170,7 @@ async def crm_companies(
     clients: Clients = Depends(clients_dep),
 ):
     return await _run_sync(
-        store, response, "crm_company", data, lambda: upsert_company(clients, data)
+        store, response, "crm-company", data, lambda: upsert_company(clients, data)
     )
 
 
@@ -188,7 +188,7 @@ async def crm_contacts(
     clients: Clients = Depends(clients_dep),
 ):
     return await _run_sync(
-        store, response, "crm_contact", data, lambda: upsert_contact(clients, data)
+        store, response, "crm-contact", data, lambda: upsert_contact(clients, data)
     )
 
 
@@ -205,4 +205,4 @@ async def crm_notes(
     store: RunStore = Depends(run_store),
     clients: Clients = Depends(clients_dep),
 ):
-    return await _run_sync(store, response, "crm_note", data, lambda: run_note(clients, data))
+    return await _run_sync(store, response, "crm-note", data, lambda: run_note(clients, data))
