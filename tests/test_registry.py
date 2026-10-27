@@ -120,3 +120,17 @@ def test_every_real_flow_has_a_description():
     assert len(registry) == 8
     for slug, spec in registry.items():
         assert spec.description.strip(), f"{slug} sin description"
+        for node in spec.graph:
+            assert str(node.get("about", "")).strip(), f"{slug}/{node['id']} sin about"
+
+
+@pytest.mark.parametrize("about", ["", "   ", None, 3])
+def test_graph_bad_about_is_rejected(about):
+    graph = ({"id": "a", "label": "A", "about": about, "to": ()},)
+    with pytest.raises(RuntimeError, match="about"):
+        validate(_spec(graph=graph), origin="test")
+
+
+def test_graph_about_is_optional_and_accepted():
+    graph = ({"id": "a", "about": "Does a."}, {"id": "b", "to": ()})
+    validate(_spec(graph=graph), origin="test")

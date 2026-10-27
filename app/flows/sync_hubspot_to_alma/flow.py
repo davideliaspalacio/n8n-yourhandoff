@@ -201,9 +201,41 @@ spec = FlowSpec(
     ),
     summary="Sync recently modified HubSpot contacts and their companies into Alma's Supabase",
     graph=(
-        {"id": "hubspot_search", "label": "HubSpot search", "to": ("filter",)},
-        {"id": "filter", "label": "Filter", "to": ("companies_upsert",)},
-        {"id": "companies_upsert", "label": "Upsert companies", "to": ("contacts_upsert",)},
-        {"id": "contacts_upsert", "label": "Upsert contacts", "to": ()},
+        {
+            "id": "hubspot_search",
+            "label": "HubSpot search",
+            "to": ("filter",),
+            "about": (
+                "Searches HubSpot for contacts modified since the given time, following "
+                "pagination until all are fetched."
+            ),
+        },
+        {
+            "id": "filter",
+            "label": "Filter",
+            "to": ("companies_upsert",),
+            "about": (
+                "Drops test accounts and contacts without an associated company, so only syncable "
+                "contacts remain."
+            ),
+        },
+        {
+            "id": "companies_upsert",
+            "label": "Upsert companies",
+            "to": ("contacts_upsert",),
+            "about": (
+                "Reads each distinct company from HubSpot and upserts it into Alma's Supabase. In "
+                "dry_run it only counts what would be upserted."
+            ),
+        },
+        {
+            "id": "contacts_upsert",
+            "label": "Upsert contacts",
+            "to": (),
+            "about": (
+                "Upserts the contacts by hubspot_id and links them to their companies; links that "
+                "already exist are skipped."
+            ),
+        },
     ),
 )

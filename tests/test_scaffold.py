@@ -43,4 +43,6 @@ def test_scaffold_kind_option(tmp_path):
 
 def test_scaffold_includes_description_todo(tmp_path):
     create_flow("with-desc", root=tmp_path)
-    assert "description=" in (tmp_path / "app/flows/with_desc/flow.py").read_text()
+    text = (tmp_path / "app/flows/with_desc/flow.py").read_text()
+    assert "description=" in text
+    assert '"about": "TODO' in text

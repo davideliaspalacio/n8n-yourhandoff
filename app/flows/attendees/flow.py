@@ -156,7 +156,23 @@ spec = FlowSpec(
     ),
     summary="Enrich attendees with Apollo and write a pre-call bio for each",
     graph=(
-        {"id": "apollo", "label": "Apollo match", "to": ("contact_summary",)},
-        {"id": "contact_summary", "label": "LLM bio", "to": ()},
+        {
+            "id": "apollo",
+            "label": "Apollo match",
+            "to": ("contact_summary",),
+            "about": (
+                "Matches each attendee email in Apollo to fetch their title, company and LinkedIn "
+                "profile."
+            ),
+        },
+        {
+            "id": "contact_summary",
+            "label": "LLM bio",
+            "to": (),
+            "about": (
+                "Asks the LLM to write a short pre-call bio for each matched contact; unmatched "
+                "emails skip the model."
+            ),
+        },
     ),
 )

@@ -350,12 +350,64 @@ spec = FlowSpec(
             "id": "event_function",
             "label": "Calendar event",
             "to": ("enrich_contacts", "enrich_company", "team_communications"),
+            "about": (
+                "Calls the handle-discovery-call-booked edge function to add the team to the "
+                "calendar event. A failure here fails the run; in dry_run it is skipped."
+            ),
         },
-        {"id": "enrich_contacts", "label": "Enrich contacts", "to": ("hubspot_company",)},
-        {"id": "enrich_company", "label": "Enrich company", "to": ("hubspot_company",)},
-        {"id": "team_communications", "label": "Team communications", "to": ("hubspot_company",)},
-        {"id": "hubspot_company", "label": "HubSpot company", "to": ("hubspot_contacts",)},
-        {"id": "hubspot_contacts", "label": "HubSpot contacts", "to": ("slack",)},
-        {"id": "slack", "label": "Slack message", "to": ()},
+        {
+            "id": "enrich_contacts",
+            "label": "Enrich contacts",
+            "to": ("hubspot_company",),
+            "about": (
+                "Enriches the external attendees with Apollo and writes a pre-call bio for each. "
+                "Degrades if it fails."
+            ),
+        },
+        {
+            "id": "enrich_company",
+            "label": "Enrich company",
+            "to": ("hubspot_company",),
+            "about": (
+                "Enriches the prospect company from its URL (Apollo, news, jobs and an LLM "
+                "summary). Skipped when no company URL is given."
+            ),
+        },
+        {
+            "id": "team_communications",
+            "label": "Team communications",
+            "to": ("hubspot_company",),
+            "about": (
+                "Searches the team's previous emails and Fireflies meetings with the attendees "
+                "and summarizes them. Degrades if it fails."
+            ),
+        },
+        {
+            "id": "hubspot_company",
+            "label": "HubSpot company",
+            "to": ("hubspot_contacts",),
+            "about": (
+                "Creates or updates the company in HubSpot, matched by domain, with its AI note. "
+                "Skipped in dry_run."
+            ),
+        },
+        {
+            "id": "hubspot_contacts",
+            "label": "HubSpot contacts",
+            "to": ("slack",),
+            "about": (
+                "Creates or updates each attendee in HubSpot and associates them with the "
+                "company. One failing contact does not stop the others."
+            ),
+        },
+        {
+            "id": "slack",
+            "label": "Slack message",
+            "to": (),
+            "about": (
+                "Posts the briefing announcement and its thread to Slack. A failure here fails "
+                "the run; skipped in dry_run."
+            ),
+        },
     ),
 )

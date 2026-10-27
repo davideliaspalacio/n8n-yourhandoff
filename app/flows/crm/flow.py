@@ -147,7 +147,15 @@ specs = (
         ),
         summary="Create or update a HubSpot company (matched by domain) and post its AI note",
         graph=(
-            {"id": "crm-company", "label": "Upsert company", "to": ()},
+            {
+                "id": "crm-company",
+                "label": "Upsert company",
+                "to": (),
+                "about": (
+                    "Looks up the company in HubSpot by domain, creates or updates it, and posts "
+                    "the AI-generated note."
+                ),
+            },
         ),
     ),
     FlowSpec(
@@ -165,7 +173,15 @@ specs = (
         ),
         summary="Create or update a HubSpot contact (by email) and link it to a company",
         graph=(
-            {"id": "crm-contact", "label": "Upsert contact", "to": ()},
+            {
+                "id": "crm-contact",
+                "label": "Upsert contact",
+                "to": (),
+                "about": (
+                    "Looks up the contact in HubSpot by email, creates or updates it, and "
+                    "associates it with the given company."
+                ),
+            },
         ),
     ),
     FlowSpec(
@@ -183,7 +199,14 @@ specs = (
         ),
         summary="Post a note to a HubSpot company or contact",
         graph=(
-            {"id": "crm-note", "label": "Post note", "to": ()},
+            {
+                "id": "crm-note",
+                "label": "Post note",
+                "to": (),
+                "about": (
+                    "Creates a HubSpot note and associates it with the target company or contact."
+                ),
+            },
         ),
     ),
 )

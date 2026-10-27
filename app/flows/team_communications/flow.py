@@ -130,8 +130,32 @@ spec = FlowSpec(
     ),
     summary="Search team communications (Gmail via Unipile + Fireflies) and summarize",
     graph=(
-        {"id": "unipile", "label": "Gmail (Unipile)", "to": ("summary",)},
-        {"id": "fireflies", "label": "Fireflies meetings", "to": ("summary",)},
-        {"id": "summary", "label": "LLM summary", "to": ()},
+        {
+            "id": "unipile",
+            "label": "Gmail (Unipile)",
+            "to": ("summary",),
+            "about": (
+                "Searches each team Gmail account through Unipile for emails exchanged with the "
+                "external contacts."
+            ),
+        },
+        {
+            "id": "fireflies",
+            "label": "Fireflies meetings",
+            "to": ("summary",),
+            "about": (
+                "Fetches Fireflies meeting summaries that include the contacts, even when there "
+                "are no emails. Degrades if it fails."
+            ),
+        },
+        {
+            "id": "summary",
+            "label": "LLM summary",
+            "to": (),
+            "about": (
+                "Asks the LLM to summarize the emails and meetings into one communications "
+                "overview."
+            ),
+        },
     ),
 )

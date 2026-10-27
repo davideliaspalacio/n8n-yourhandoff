@@ -49,7 +49,7 @@ spec = FlowSpec(
     description="TODO: 2-4 sentences of context",  # se muestra al entrar al flow en /ui
     # Mapa del proceso para el dashboard; ids = nombres de record_step.
     graph=(
-        {{"id": "todo", "label": "TODO", "to": ()}},
+        {{"id": "todo", "label": "TODO", "about": "TODO: what this step does", "to": ()}},
     ),
 )
 '''

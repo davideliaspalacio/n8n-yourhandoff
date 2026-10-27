@@ -33,7 +33,12 @@ async def list_flows(request: Request, store: RunStore = Depends(run_store)) -> 
             "endpoint": f"/v1/flows/{spec.slug}",
             "stats": stats.get(spec.slug, EMPTY_STATS),
             "graph": [
-                {"id": n["id"], "label": n.get("label", n["id"]), "to": list(n.get("to") or ())}
+                {
+                    "id": n["id"],
+                    "label": n.get("label", n["id"]),
+                    "about": n.get("about", ""),
+                    "to": list(n.get("to") or ()),
+                }
                 for n in spec.graph
             ],
         }

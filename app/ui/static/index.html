@@ -188,7 +188,7 @@ function graphHtml(graph, statusById) {
   const nodes = graph.map((n, i) => {
     const r = row[depth[i]] = (row[depth[i]] ?? -1) + 1, st = statusById[n.id];
     return { x: depth[i] * GX, y: r * GY, label: n.label || n.id,
-      status: st ? st.status : 'none', at: st && st.at, detail: st && st.detail, unrun: !st };
+      status: st ? st.status : 'none', at: st && st.at, detail: st && st.detail, unrun: !st, about: n.about };
   });
   const edges = [];
   graph.forEach((n, i) => n.to.forEach(t => { if (idx.has(t)) edges.push({ from: i, to: idx.get(t) }); }));
@@ -251,14 +251,15 @@ function showStep(pid, i) {
   box.dataset.sel = String(i);
   box.hidden = same;
   if (same) return;
+  const about = s.about ? `<p class="text-body-secondary small mt-2 mb-1">${esc(s.about)}</p>` : '';
   if (s.unrun) {
-    box.innerHTML = `<strong>${esc(s.label)}</strong>
+    box.innerHTML = `<strong>${esc(s.label)}</strong>${about}
       <div class="text-body-secondary small mt-2">This step has not run yet.</div>`;
     return;
   }
   box.innerHTML = `<div class="d-flex align-items-center gap-2"><strong>${esc(s.label)}</strong>
     ${statusCell(s.status)}
-    <span class="text-body-secondary small">· ${when(s.at)}</span></div>` +
+    <span class="text-body-secondary small">· ${when(s.at)}</span></div>${about}` +
     (s.detail ? `<pre>${esc(JSON.stringify(s.detail, null, 2))}</pre>`
               : '<div class="text-body-secondary small mt-2">No detail.</div>');
 }

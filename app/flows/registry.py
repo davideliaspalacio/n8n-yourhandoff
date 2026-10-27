@@ -41,6 +41,7 @@ class FlowSpec:
     description: str = ""
     response_model: Any = None  # opcional, solo flows sync
     # Grafo declarado para el dashboard: {"id", "label", "to": (ids siguientes)}.
+    # "about" (opcional): qué hace el paso; se ve al hacer clic en el nodo en /ui.
     # Los ids deben coincidir con los nombres de record_step del flow.
     graph: tuple[dict, ...] = ()
 
@@ -65,6 +66,8 @@ def _validate_graph(spec: FlowSpec, *, origin: str) -> None:
         node_id = node.get("id") if isinstance(node, dict) else None
         if not isinstance(node_id, str) or not node_id:
             raise RuntimeError(f"{origin}: graph con nodo sin id válido: {node!r}")
+        if "about" in node and not (isinstance(node["about"], str) and node["about"].strip()):
+            raise RuntimeError(f"{origin}: graph: 'about' de {node_id!r} debe ser un str no vacío")
         ids.append(node_id)
     if len(set(ids)) != len(ids):
         dup = sorted({i for i in ids if ids.count(i) > 1})

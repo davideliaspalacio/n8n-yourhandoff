@@ -197,9 +197,37 @@ spec = FlowSpec(
             "id": "apollo",
             "label": "Apollo organization",
             "to": ("serpapi_google_news", "serpapi_google_jobs"),
+            "about": (
+                "Enriches the company in Apollo from its domain: size, industry, location and "
+                "LinkedIn data."
+            ),
         },
-        {"id": "serpapi_google_news", "label": "Google News", "to": ("summary",)},
-        {"id": "serpapi_google_jobs", "label": "Google Jobs", "to": ("summary",)},
-        {"id": "summary", "label": "LLM summary", "to": ()},
+        {
+            "id": "serpapi_google_news",
+            "label": "Google News",
+            "to": ("summary",),
+            "about": (
+                "Searches Google News via SerpApi for recent press about the company. Degrades "
+                "without breaking the flow if it fails."
+            ),
+        },
+        {
+            "id": "serpapi_google_jobs",
+            "label": "Google Jobs",
+            "to": ("summary",),
+            "about": (
+                "Searches Google Jobs via SerpApi for the company's open positions. Degrades "
+                "without breaking the flow if it fails."
+            ),
+        },
+        {
+            "id": "summary",
+            "label": "LLM summary",
+            "to": (),
+            "about": (
+                "Asks the LLM to turn the Apollo data, news and jobs into a structured JSON "
+                "summary of the company."
+            ),
+        },
     ),
 )
