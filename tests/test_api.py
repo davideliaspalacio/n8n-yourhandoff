@@ -78,6 +78,9 @@ async def test_generic_route_matches_alias(api, mock):
     assert generic_body == alias_body
     run = (await api.get(f"/v1/runs/{generic.headers['X-Run-Id']}", headers=H)).json()
     assert run["flow"] == "enrich-company" and run["status"] == "succeeded"
+    # El alias debe registrar el run con el slug, igual que la ruta genérica.
+    alias_run = (await api.get(f"/v1/runs/{alias.headers['X-Run-Id']}", headers=H)).json()
+    assert alias_run["flow"] == "enrich-company"
 
 
 async def test_missing_credential_is_503(api, settings, mock):
