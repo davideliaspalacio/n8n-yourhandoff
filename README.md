@@ -43,6 +43,10 @@ Todo `/v1` pide la cabecera `X-API-Key` y devuelve `X-Run-Id`.
 | `POST /v1/crm/companies` | Company CRM Add/Update | síncrono |
 | `POST /v1/crm/contacts` | Contact CRM Add/Update | síncrono |
 | `POST /v1/crm/notes` | Post Note to Hubspot | síncrono |
+| `GET /v1/flows` | — | síncrono |
+| `GET /v1/runs` | — | síncrono |
+| `GET /v1/costs/summary` | — | síncrono |
+| `POST /v1/runs/{run_id}/replay` | — | 202 + `run_id` |
 
 El cuerpo del orquestador es el mismo que recibía el trigger de n8n
 (`companyName`, `primaryContactEmail`, `guestEmails`…). Con `"dry_run": true`
@@ -53,6 +57,20 @@ devuelve en el run los dos mensajes que habría publicado.
 `linkedIn`, `crm`), así que el Founders Club Agent puede apuntar
 `ENRICHMENT_WEBHOOK_URL` aquí sin cambiar su parser. Ojo: ese cliente tendría
 que mandar también `X-API-Key`.
+
+## Dashboard
+
+`/ui` (misma API key): flujos registrados con stats de 7 días, ejecuciones con
+steps y costes, resumen de costes, y relanzar un run con su mismo input.
+
+## Añadir un flow nuevo
+
+```bash
+uv run python scripts/new_flow.py mi-flujo --replaces "Mi Flujo (n8n)"
+```
+
+Crea `app/flows/mi_flujo/` siguiendo la convención (ver `CLAUDE.md`); al
+arrancar aparece solo en Swagger, en `/ui` y en `GET /v1/flows`.
 
 ## Cortar n8n
 
