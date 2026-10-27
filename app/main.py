@@ -7,9 +7,11 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from .api.flow_routes import build_flows_router
 from .api.routes import router
 from .clients import Clients
 from .config import Settings, get_settings
+from .flows.registry import FlowSpec, discover
 from .runs import MemoryRunStore, PostgresRunStore, RunStore
 
 logger = logging.getLogger(__name__)
@@ -44,6 +46,7 @@ def create_app(
     *,
     clients: Clients | None = None,
     store: RunStore | None = None,
+    flow_registry: dict[str, FlowSpec] | None = None,
 ) -> FastAPI:
     settings = settings or get_settings()
 
@@ -71,7 +74,10 @@ def create_app(
         ],
     )
     app.state.settings = settings
+    registry = flow_registry if flow_registry is not None else discover()
+    app.state.flow_registry = registry
     app.include_router(router)
+    app.include_router(build_flows_router(registry))
 
     @app.get("/health", tags=["Health"], summary="Liveness check")
     async def health() -> dict:
