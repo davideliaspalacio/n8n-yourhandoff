@@ -128,7 +128,12 @@ function pipelineHtml(steps) {
   const glyph = s => s === 'succeeded' ? '✓' : s === 'failed' ? '✗' : '●';
   const edges = pos.slice(1).map((b, k) => {
     const a = pos[k], x1 = a.x + NW, y1 = a.y + NH / 2, x2 = b.x, y2 = b.y + NH / 2;
-    const dx = Math.max(60, Math.abs(x2 - x1) / 2);
+    if (b.x <= a.x) { // row wrap: U shape through the lane in the row gap
+      const yl = a.y + NH + (GY - NH) / 2, xi = x2 - 50;
+      return `<path class="cv-edge" d="M${x1} ${y1} C${x1 + 50} ${y1} ${x1 + 50} ${yl} ${x1} ${yl}` +
+        ` L${xi} ${yl} C${xi} ${y2} ${xi} ${y2} ${x2} ${y2}"/>`;
+    }
+    const dx = Math.min(80, (x2 - x1) / 2);
     return `<path class="cv-edge" d="M${x1} ${y1} C${x1 + dx} ${y1} ${x2 - dx} ${y2} ${x2} ${y2}"/>`;
   }).join('');
   const nodes = steps.map((s, i) => {
@@ -165,6 +170,7 @@ function pipeMap(svg, v) {
 let pan = null;
 const pipeOf = e => { const c = e.target.closest && e.target.closest('.pipe-cv'); return c ? c : null; };
 document.addEventListener('pointerdown', e => {
+  if (e.button !== undefined && e.button !== 0) return;
   const c = pipeOf(e);
   if (!c || e.target.closest('.cv-node') || e.target.closest('button')) return;
   const svg = c.querySelector('svg'), pid = Number(c.dataset.pid), v = pipes[pid].vb;
