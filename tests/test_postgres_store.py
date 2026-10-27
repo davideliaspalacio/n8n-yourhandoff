@@ -47,3 +47,10 @@ async def test_orphans_are_failed_and_bad_ids_are_none(pg):
     run = await pg.get(run_id)
     assert run["status"] == FAILED and "restart" in run["error"]
     assert await pg.get("not-a-uuid") is None
+
+
+async def test_replay_of_round_trip(pg):
+    original = await pg.create("echo", {"text": "hola"})
+    replay = await pg.create("echo", {"text": "hola"}, replay_of=original)
+    assert (await pg.get(replay))["replay_of"] == original
+    assert (await pg.get(original))["replay_of"] is None
