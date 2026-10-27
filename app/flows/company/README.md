@@ -3,6 +3,8 @@
 Enriquece una empresa a partir de su URL: datos de Apollo, noticias y empleos de
 Google (SerpApi) y un resumen en JSON generado por GPT-4.1.
 
+- Tipo: `workflow`. Además de nodo del discovery call, es un workflow completo con entrada
+  externa propia (webhook del Founders Club → `/v1/companies/enrich`).
 - Endpoint: `POST /v1/flows/enrich-company` (alias antiguo `/v1/companies/enrich`).
 - Entrada: `CompanyRequest` (`companyUrl`). Salida: `CompanyEnrichment`, que
   conserva la forma del webhook de n8n (`Company`, `linkedIn`, `crm`).

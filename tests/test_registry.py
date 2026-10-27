@@ -101,7 +101,7 @@ def test_research_flows_are_registered():
     registry = discover()
     assert {"enrich-company", "enrich-contacts", "team-communications"} <= set(registry)
     assert registry["enrich-company"].mode == "sync"
-    assert registry["enrich-company"].kind == "node"
+    assert registry["enrich-company"].kind == "workflow"
 
 
 def test_crm_and_orchestrator_flows_are_registered():
@@ -111,13 +111,18 @@ def test_crm_and_orchestrator_flows_are_registered():
     assert registry["discovery-call-booked"].kind == "workflow"
 
 
+def test_contact_enrichment_is_registered_as_sync_workflow():
+    spec = discover()["contact-enrichment"]
+    assert (spec.mode, spec.kind) == ("sync", "workflow")
+
+
 def test_sync_hubspot_to_alma_is_registered_and_async():
     assert discover()["sync-hubspot-to-alma"].mode == "async"
 
 
 def test_every_real_flow_has_a_description():
     registry = discover()
-    assert len(registry) == 8
+    assert len(registry) == 9
     for slug, spec in registry.items():
         assert spec.description.strip(), f"{slug} sin description"
         for node in spec.graph:
