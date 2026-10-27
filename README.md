@@ -7,8 +7,9 @@ Swagger en `/docs`, ReDoc en `/redoc`.
 - Diseño y decisiones: [docs/design.md](docs/design.md)
 - Plan: [docs/plan.md](docs/plan.md)
 
-Es autónomo (su propio `pyproject.toml`, sin dependencias del agente del
-Founders Club): para llevarlo a su propio repo basta con copiar esta carpeta.
+Repo: [davideliaspalacio/n8n-yourhandoff](https://github.com/davideliaspalacio/n8n-yourhandoff).
+Railway despliega `main` automáticamente (proyecto `handoff-flows` de Jake's
+Projects).
 
 ## Arrancar en local
 
