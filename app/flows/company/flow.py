@@ -14,14 +14,14 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import UTC, datetime
-from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from app.clients import Clients
+from app.domain.industry import to_hubspot_industry
+from app.domain.naming import company_name_from_url, domain_of
+from app.flows.registry import FlowSpec
+from app.runs import record_step
 
-from ..clients import Clients
-from ..domain.industry import to_hubspot_industry
-from ..domain.naming import company_name_from_url, domain_of
-from ..runs import record_step
+from .schemas import CompanyEnrichment, CompanyRequest
 
 logger = logging.getLogger(__name__)
 
@@ -35,22 +35,6 @@ GROWTH_WINDOWS = (
     (12, "organization_headcount_twelve_month_growth"),
     (24, "organization_headcount_twenty_four_month_growth"),
 )
-
-
-class CompanyRequest(BaseModel):
-    companyUrl: str = Field(..., examples=["staynido.com"])
-
-
-class CompanyEnrichment(BaseModel):
-    model_config = ConfigDict(extra="allow")
-
-    foundCompany: bool
-    Company: dict[str, Any]
-    linkedIn: dict[str, Any]
-    crm: dict[str, Any]
-    industryHubspot: str | None = None
-    industryMatched: bool = False
-    industryRaw: str = ""
 
 
 def _growth(org: dict) -> list[dict]:
@@ -186,3 +170,18 @@ async def enrich_company(clients: Clients, company_url: str) -> CompanyEnrichmen
         industryMatched=hubspot_industry is not None,
         industryRaw=raw_industry,
     )
+
+
+async def run(clients: Clients, data: CompanyRequest) -> CompanyEnrichment:
+    return await enrich_company(clients, data.companyUrl)
+
+
+spec = FlowSpec(
+    slug="enrich-company",
+    title="Enrich Company",
+    input_model=CompanyRequest,
+    response_model=CompanyEnrichment,
+    run=run,
+    replaces="Enrich Company (+ Get LinkedIn Data, News + Job Search)",
+    summary="Enrich a company (Apollo, Google News, Google Jobs) and summarize it",
+)

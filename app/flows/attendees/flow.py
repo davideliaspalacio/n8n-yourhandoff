@@ -10,10 +10,11 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from pydantic import BaseModel, Field
+from app.clients import Clients
+from app.domain.emails import normalize_emails
+from app.flows.registry import FlowSpec
 
-from ..clients import Clients
-from ..domain.emails import normalize_emails
+from .schemas import ContactsRequest, EnrichedContact
 
 logger = logging.getLogger(__name__)
 
@@ -35,33 +36,6 @@ GENERIC_DOMAINS = {
     "msn.com",
     "ymail.com",
 }
-
-
-class ContactsRequest(BaseModel):
-    emails: list[str] = Field(..., examples=[["emanuel@staynido.com"]])
-
-
-class EnrichedContact(BaseModel):
-    email: str = Field(description="The email that was looked up (source of truth).")
-    enriched: bool = Field(description="Apollo found the person and a bio was generated.")
-    name: str = ""
-    first_name: str = ""
-    last_name: str = ""
-    title: str = ""
-    linkedin_url: str = ""
-    photo_url: str = ""
-    twitter_url: str = ""
-    facebook_url: str = ""
-    city: str = ""
-    state: str = ""
-    country: str = ""
-    ai_summary: str = ""
-    ai_summary_flagged: bool = Field(
-        False, description="The model did not use the expected `summary` key."
-    )
-    company_domain_mismatch: bool = False
-    error: str | None = None
-    llm: dict | None = None
 
 
 def _normalize(text: str) -> str:
@@ -159,3 +133,18 @@ async def enrich_contacts(clients: Clients, emails: list[str]) -> list[EnrichedC
         return []
     base = await clients.alma.get_prompt(PROMPT_TITLE)
     return list(await asyncio.gather(*(enrich_contact(clients, e, base) for e in valid)))
+
+
+async def run(clients: Clients, data: ContactsRequest) -> list[EnrichedContact]:
+    return await enrich_contacts(clients, data.emails)
+
+
+spec = FlowSpec(
+    slug="enrich-contacts",
+    title="Enrich External Attendees",
+    input_model=ContactsRequest,
+    response_model=list[EnrichedContact],
+    run=run,
+    replaces="Enrich External Attendees",
+    summary="Enrich attendees with Apollo and write a pre-call bio for each",
+)

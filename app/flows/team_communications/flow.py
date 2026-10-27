@@ -10,35 +10,17 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from pydantic import BaseModel, Field
+from app.clients import Clients
+from app.domain.emails import CleanEmail, clean_messages, email_context, external_emails
+from app.flows.registry import FlowSpec
+from app.runs import record_step
 
-from ..clients import Clients
-from ..domain.emails import CleanEmail, clean_messages, email_context, external_emails
-from ..runs import record_step
+from .schemas import CommunicationsRequest, CommunicationsResult
 
 logger = logging.getLogger(__name__)
 
 PROMPT_TITLE = "Communications Analysis (Email)"
 NO_COMMUNICATIONS = "No communications found"
-
-
-class CommunicationsRequest(BaseModel):
-    emails: list[str] = Field(
-        ...,
-        description="Contact emails. Internal team addresses are ignored.",
-        examples=[["ana.gazarian@ems-ir.com", "patricia.raventos@ems-ir.com"]],
-    )
-
-
-class CommunicationsResult(BaseModel):
-    contacts: list[str] = Field(description="Validated external emails that were searched.")
-    summary: str
-    has_emails: bool
-    email_count: int
-    meeting_count: int
-    emails: list[CleanEmail] = []
-    meeting_summaries: list[str] = []
-    llm: dict | None = Field(None, description="Model usage and cost, when the model was called.")
 
 
 async def _fetch_emails(clients: Clients, contacts: list[str]) -> list[CleanEmail]:
@@ -124,3 +106,18 @@ async def search_team_communications(clients: Clients, emails: list[str]) -> Com
         meeting_summaries=meetings,
         llm=result.usage,
     )
+
+
+async def run(clients: Clients, data: CommunicationsRequest) -> CommunicationsResult:
+    return await search_team_communications(clients, data.emails)
+
+
+spec = FlowSpec(
+    slug="team-communications",
+    title="Search Team Communications",
+    input_model=CommunicationsRequest,
+    response_model=CommunicationsResult,
+    run=run,
+    replaces="Search Team Communications (+ Fireflies)",
+    summary="Search team communications (Gmail via Unipile + Fireflies) and summarize",
+)

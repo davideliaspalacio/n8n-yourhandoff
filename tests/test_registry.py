@@ -52,3 +52,9 @@ def test_discover_returns_registry():
     assert isinstance(registry, dict)
     for slug, spec in registry.items():
         assert slug == spec.slug
+
+
+def test_research_flows_are_registered():
+    registry = discover()
+    assert {"enrich-company", "enrich-contacts", "team-communications"} <= set(registry)
+    assert registry["enrich-company"].mode == "sync"
