@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Handoff Flows</title>
+<style>
+:root { --bg:#fff; --fg:#1a1a1a; --muted:#667; --line:#e2e4ea; --card:#f6f7f9;
+        --ok:#157f3d; --bad:#c0392b; --run:#b7791f; --accent:#2457d6; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg:#111418; --fg:#e8eaed; --muted:#99a; --line:#2a2f37; --card:#1a1f26;
+          --ok:#4cc38a; --bad:#ff7b6b; --run:#e2b93d; --accent:#7aa2ff; }
+}
+* { box-sizing:border-box } body { margin:0; background:var(--bg); color:var(--fg);
+  font:15px/1.5 ui-sans-serif, system-ui, sans-serif }
+header { display:flex; gap:1rem; align-items:center; padding:.8rem 1rem;
+  border-bottom:1px solid var(--line); flex-wrap:wrap }
+header h1 { font-size:1.05rem; margin:0 }
+nav a { color:var(--muted); text-decoration:none; padding:.25rem .6rem; border-radius:6px }
+nav a.active { color:var(--fg); background:var(--card) }
+#key-btn { margin-left:auto; font-size:.8rem }
+main { padding:1rem; max-width:1100px; margin:0 auto }
+table { width:100%; border-collapse:collapse; margin:.8rem 0 }
+th, td { text-align:left; padding:.45rem .6rem; border-bottom:1px solid var(--line);
+  vertical-align:top; font-size:.9rem }
+th { color:var(--muted); font-weight:600 }
+tr.link { cursor:pointer } tr.link:hover { background:var(--card) }
+.status { font-weight:600 } .status.succeeded { color:var(--ok) }
+.status.failed { color:var(--bad) } .status.running { color:var(--run) }
+.pill { background:var(--card); border-radius:999px; padding:.1rem .55rem; font-size:.78rem }
+button, select, input { font:inherit; padding:.35rem .7rem; border-radius:6px;
+  border:1px solid var(--line); background:var(--card); color:var(--fg) }
+button.primary { background:var(--accent); color:#fff; border-color:var(--accent); cursor:pointer }
+pre { background:var(--card); padding:.7rem; border-radius:8px; overflow:auto;
+  font-size:.8rem; max-height:22rem }
+.filters { display:flex; gap:.5rem; flex-wrap:wrap; align-items:center }
+.muted { color:var(--muted) } .err { color:var(--bad) }
+.step { border-left:3px solid var(--line); padding:.2rem 0 .2rem .8rem; margin:.3rem 0 }
+.step.failed { border-color:var(--bad) } .step.succeeded { border-color:var(--ok) }
+a { color:var(--accent) }
+</style>
+</head>
+<body>
+<header>
+  <h1>Handoff Flows</h1>
+  <nav>
+    <a href="#/flows" data-tab="flows">Flows</a>
+    <a href="#/runs" data-tab="runs">Runs</a>
+    <a href="#/costs" data-tab="costs">Costs</a>
+  </nav>
+  <button id="key-btn"></button>
+</header>
+<main id="view">Loading…</main>
+<script>
+const view = document.getElementById('view');
+const esc = s => String(s ?? '').replace(/[&<>"']/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money = v => '$' + Number(v || 0).toFixed(4);
+const when = iso => iso ? new Date(iso).toLocaleString() : '—';
+
+function getKey() { try { return localStorage.getItem('apiKey') || ''; } catch { return ''; } }
+function askKey(msg) {
+  const k = prompt(msg || 'API key (sent as X-API-Key):', getKey());
+  if (k !== null) { try { localStorage.setItem('apiKey', k.trim()); } catch {} render(); }
+}
+async function api(path, opts = {}) {
+  if (!getKey()) { askKey(); if (!getKey()) throw new Error('API key required'); }
+  const r = await fetch(path, { ...opts, headers: { 'X-API-Key': getKey(), ...(opts.headers || {}) } });
+  if (r.status === 401) { askKey('Invalid key. API key:'); throw new Error('unauthorized'); }
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
+  return r.json();
+}
+
+const statusCell = s => `<span class="status ${esc(s)}">${esc(s)}</span>`;
+
+async function renderFlows() {
+  const { flows } = await api('/v1/flows');
+  view.innerHTML = `<h2>Flows <span class="muted">(${flows.length})</span></h2>
+  <table><tr><th>Flow</th><th>Mode</th><th>Replaces (n8n)</th><th>Last run</th>
+  <th>Runs 7d</th><th>OK 7d</th><th>Cost 7d</th></tr>` + flows.map(f => `
+  <tr class="link" onclick="location.hash='#/runs?flow=${encodeURIComponent(f.slug)}'">
+    <td><strong>${esc(f.title)}</strong><br><span class="muted">${esc(f.endpoint)}</span></td>
+    <td><span class="pill">${esc(f.mode)}</span></td>
+    <td class="muted">${esc(f.replaces)}</td>
+    <td>${f.stats.last_status ? statusCell(f.stats.last_status) + '<br>' : ''}
+        <span class="muted">${when(f.stats.last_run_at)}</span></td>
+    <td>${f.stats.runs}</td><td>${f.stats.succeeded}</td><td>${money(f.stats.cost_usd)}</td>
+  </tr>`).join('') + '</table>';
+}
+
+async function renderRuns(params) {
+  const flow = params.get('flow') || '', status = params.get('status') || '';
+  const page = Number(params.get('page') || 1);
+  const q = new URLSearchParams({ page, per_page: 50 });
+  if (flow) q.set('flow', flow); if (status) q.set('status', status);
+  const data = await api('/v1/runs?' + q);
+  const pages = Math.max(1, Math.ceil(data.total / data.per_page));
+  const nav = (p, label) => `<button onclick="location.hash='#/runs?${
+    new URLSearchParams({ ...(flow && { flow }), ...(status && { status }), page: p })}'">${label}</button>`;
+  view.innerHTML = `<h2>Runs <span class="muted">(${data.total})</span></h2>
+  <div class="filters">
+    <input id="f-flow" placeholder="flow slug" value="${esc(flow)}">
+    <select id="f-status">
+      ${['', 'running', 'succeeded', 'failed'].map(s =>
+        `<option value="${s}" ${s === status ? 'selected' : ''}>${s || 'any status'}</option>`).join('')}
+    </select>
+    <button class="primary" id="f-go">Filter</button>
+    <span class="muted">page ${data.page}/${pages}</span>
+    ${data.page > 1 ? nav(data.page - 1, '←') : ''} ${data.page < pages ? nav(data.page + 1, '→') : ''}
+  </div>
+  <table><tr><th>When</th><th>Flow</th><th>Status</th><th>Error</th></tr>` +
+  data.items.map(r => `
+  <tr class="link" onclick="location.hash='#/runs/${r.id}'">
+    <td>${when(r.created_at)}${r.replay_of ? ' <span class="pill">replay</span>' : ''}${
+      r.dry_run ? ' <span class="pill">dry run</span>' : ''}</td>
+    <td>${esc(r.flow)}</td><td>${statusCell(r.status)}</td>
+    <td class="err">${esc((r.error || '').slice(0, 90))}</td>
+  </tr>`).join('') + '</table>';
+  document.getElementById('f-go').onclick = () => {
+    const q = new URLSearchParams();
+    const f = document.getElementById('f-flow').value.trim();
+    const s = document.getElementById('f-status').value;
+    if (f) q.set('flow', f); if (s) q.set('status', s);
+    location.hash = '#/runs?' + q;
+  };
+}
+
+async function renderRun(id) {
+  const run = await api('/v1/runs/' + id);
+  view.innerHTML = `<p><a href="#/runs">← runs</a></p>
+  <h2>${esc(run.flow)} ${statusCell(run.status)}</h2>
+  <p class="muted">run ${esc(run.id)} · ${when(run.created_at)} → ${when(run.finished_at)}
+    · cost ${money(run.total_cost_usd)}
+    ${run.replay_of ? `· replay of <a href="#/runs/${esc(run.replay_of)}">original</a>` : ''}
+    ${run.dry_run ? '· <span class="pill">dry run</span>' : ''}</p>
+  ${run.error ? `<p class="err">${esc(run.error)}</p>` : ''}
+  <button class="primary" id="replay">Replay with same input</button>
+  <h3>Steps</h3>
+  ${(run.steps || []).map(s => `<div class="step ${esc(s.status)}">
+      <strong>${esc(s.name)}</strong> <span class="muted">${esc(s.status)} · ${when(s.at)}</span>
+      ${s.detail ? `<pre>${esc(JSON.stringify(s.detail, null, 2))}</pre>` : ''}</div>`).join('')
+    || '<p class="muted">No steps recorded.</p>'}
+  <h3>Costs</h3>
+  ${(run.costs || []).length ? '<table><tr><th>Provider</th><th>Operation</th><th>Units</th><th>USD</th></tr>' +
+    run.costs.map(c => `<tr><td>${esc(c.provider)}</td><td>${esc(c.operation)}</td>
+      <td>${c.units}</td><td>${money(c.cost_usd)}</td></tr>`).join('') + '</table>'
+    : '<p class="muted">No paid calls.</p>'}
+  <h3>Input</h3><pre>${esc(JSON.stringify(run.input, null, 2))}</pre>
+  <h3>Output</h3><pre>${esc(JSON.stringify(run.output, null, 2))}</pre>`;
+  document.getElementById('replay').onclick = async () => {
+    if (!confirm('Re-run this flow with the same input?')) return;
+    try {
+      const r = await api(`/v1/runs/${id}/replay`, { method: 'POST' });
+      location.hash = '#/runs/' + r.run_id;
+    } catch (e) { alert('Replay failed: ' + e.message); }
+  };
+}
+
+async function renderCosts() {
+  const [byDay, byProvider] = await Promise.all([
+    api('/v1/costs/summary?group_by=day&days=30'),
+    api('/v1/costs/summary?group_by=provider&days=30'),
+  ]);
+  const table = (items, col) => items.length
+    ? `<table><tr><th>${col}</th><th>USD</th></tr>` + items.map(i =>
+        `<tr><td>${esc(i[col.toLowerCase()])}</td><td>${money(i.cost_usd)}</td></tr>`).join('') + '</table>'
+    : '<p class="muted">No costs in the last 30 days.</p>';
+  view.innerHTML = `<h2>Costs — last 30 days</h2>
+    <h3>By provider</h3>${table(byProvider.items, 'Provider')}
+    <h3>By day</h3>${table(byDay.items, 'Day')}`;
+}
+
+async function render() {
+  const hash = location.hash || '#/flows';
+  const [path, query] = hash.slice(2).split('?');
+  const params = new URLSearchParams(query || '');
+  const tab = path.split('/')[0] || 'flows';
+  document.querySelectorAll('nav a').forEach(a =>
+    a.classList.toggle('active', a.dataset.tab === tab));
+  document.getElementById('key-btn').textContent = getKey() ? 'API key ✓' : 'Set API key';
+  view.innerHTML = '<p class="muted">Loading…</p>';
+  try {
+    if (path.startsWith('runs/')) await renderRun(path.split('/')[1]);
+    else if (tab === 'runs') await renderRuns(params);
+    else if (tab === 'costs') await renderCosts();
+    else await renderFlows();
+  } catch (e) {
+    view.innerHTML = `<p class="err">${esc(e.message)}</p>`;
+  }
+}
+document.getElementById('key-btn').onclick = () => askKey();
+window.addEventListener('hashchange', render);
+render();
+</script>
+</body>
+</html>

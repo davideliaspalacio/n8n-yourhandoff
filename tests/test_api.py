@@ -10,15 +10,6 @@ from tests.world import World
 H = {"X-API-Key": "test-key"}
 
 
-@pytest.fixture
-async def api(settings, clients, store):
-    app = create_app(settings, clients=clients, store=store)
-    async with app.router.lifespan_context(app):
-        transport = httpx.ASGITransport(app=app)
-        async with httpx.AsyncClient(transport=transport, base_url="http://t") as client:
-            yield client
-
-
 async def test_health_and_docs_are_public(api):
     assert (await api.get("/health")).json() == {"status": "ok"}
     assert (await api.get("/docs")).status_code == 200

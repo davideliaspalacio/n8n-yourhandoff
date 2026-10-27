@@ -11,6 +11,7 @@ from app.clients import Clients
 from app.clients.openai_llm import LLMResult
 from app.config import Settings
 from app.domain.summaries import extract_summary
+from app.main import create_app
 from app.runs import MemoryRunStore, record_cost
 
 ALMA = "https://alma.supabase.test"
@@ -103,3 +104,12 @@ def prompts_route(mock):
         return httpx.Response(200, json=[{"prompt": f"BASE[{title}]"}])
 
     return mock.get(f"{ALMA}/rest/v1/handoff_prompt_library").mock(side_effect=handler)
+
+
+@pytest.fixture
+async def api(settings, clients, store):
+    app = create_app(settings, clients=clients, store=store)
+    async with app.router.lifespan_context(app):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://t") as client:
+            yield client
