@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
@@ -23,10 +22,10 @@ from ..flows.crm import (
     ContactCrmResult,
     NoteInput,
     NoteResult,
+    run_note,
     upsert_company,
     upsert_contact,
 )
-from ..flows.discovery_call import DiscoveryCallInput, run_discovery_call
 from ..flows.team_communications import (
     CommunicationsRequest,
     CommunicationsResult,
@@ -80,54 +79,6 @@ async def _run_sync(
             raise error from exc
     await store.finish(run_id, SUCCEEDED, output=result)
     return result
-
-
-# --- Orquestador -----------------------------------------------------------------
-
-
-class RunAccepted(BaseModel):
-    run_id: str
-    status: str
-    status_url: str
-
-
-@router.post(
-    "/flows/discovery-call-booked",
-    status_code=status.HTTP_202_ACCEPTED,
-    response_model=RunAccepted,
-    responses=ERRORS,
-    tags=["Flows"],
-    summary="Run the Discovery Call Booked flow",
-    description=(
-        "Replaces the n8n workflow. Adds the team to the event, researches company, attendees "
-        "and past team communications, upserts everything in HubSpot and posts the briefing "
-        "to Slack. Runs in the background: poll `status_url` for steps, output and cost."
-    ),
-)
-async def discovery_call_booked(
-    data: DiscoveryCallInput,
-    request: Request,
-    store: RunStore = Depends(run_store),
-    clients: Clients = Depends(clients_dep),
-) -> RunAccepted:
-    run_id = await store.create("discovery_call_booked", data.model_dump(), dry_run=data.dry_run)
-
-    async def work() -> None:
-        with bind_run(store, run_id):
-            try:
-                result = await run_discovery_call(clients, data)
-            except Exception as exc:
-                logger.exception("discovery call run %s failed", run_id)
-                await store.finish(run_id, FAILED, error=f"{type(exc).__name__}: {exc}")
-            else:
-                await store.finish(run_id, SUCCEEDED, output=result)
-
-    task = asyncio.create_task(work())
-    # Referencia fuerte: asyncio solo guarda referencias débiles a las tareas.
-    tasks: set = request.app.state.background_tasks
-    tasks.add(task)
-    task.add_done_callback(tasks.discard)
-    return RunAccepted(run_id=run_id, status="running", status_url=f"/v1/runs/{run_id}")
 
 
 @router.get(
@@ -254,10 +205,4 @@ async def crm_notes(
     store: RunStore = Depends(run_store),
     clients: Clients = Depends(clients_dep),
 ):
-    async def work() -> NoteResult:
-        note_id = await clients.hubspot.create_note(
-            data.content, data.contact_company_deal, data.associated_hubspot_id
-        )
-        return NoteResult(noteId=note_id)
-
-    return await _run_sync(store, response, "crm_note", data, work)
+    return await _run_sync(store, response, "crm_note", data, lambda: run_note(clients, data))

@@ -58,3 +58,9 @@ def test_research_flows_are_registered():
     registry = discover()
     assert {"enrich-company", "enrich-contacts", "team-communications"} <= set(registry)
     assert registry["enrich-company"].mode == "sync"
+
+
+def test_crm_and_orchestrator_flows_are_registered():
+    registry = discover()
+    assert {"crm-company", "crm-contact", "crm-note", "discovery-call-booked"} <= set(registry)
+    assert registry["discovery-call-booked"].mode == "async"

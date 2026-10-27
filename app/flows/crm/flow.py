@@ -7,81 +7,22 @@ llamaba al webhook viejo pueda llamar a este endpoint igual.
 from __future__ import annotations
 
 import logging
-from typing import Literal
 
-from pydantic import BaseModel, Field
+from app.clients import Clients
+from app.domain.industry import to_hubspot_industry
+from app.domain.naming import domain_of
+from app.flows.registry import FlowSpec
 
-from ..clients import Clients
-from ..domain.industry import to_hubspot_industry
-from ..domain.naming import domain_of
+from .schemas import (
+    CompanyCrmInput,
+    CompanyCrmResult,
+    ContactCrmInput,
+    ContactCrmResult,
+    NoteInput,
+    NoteResult,
+)
 
 logger = logging.getLogger(__name__)
-
-
-class CompanyCrmInput(BaseModel):
-    companyName: str = Field(..., examples=["Nido"])
-    websiteUrl: str = Field("", examples=["http://www.staynido.com"])
-    linkedinUrl: str = ""
-    linkedinUid: str = ""
-    twitterUrl: str = ""
-    facebookUrl: str = ""
-    primaryPhoneNumber: str = ""
-    industry: str = Field("", description="Free text; mapped to HubSpot's industry enum.")
-    streetAddress: str = ""
-    city: str = ""
-    state: str = ""
-    country: str = ""
-    postalCode: str = ""
-    aboutUs: str = ""
-    aiSummary: str = Field("", description="Also posted as a note on the company.")
-    employeeCount: int | None = None
-    annualRevenue: float | None = None
-    crunchbaseUrl: str = ""
-    headcountGrowth6Months: float | None = None
-    headcountGrowth12Months: float | None = None
-    headcountGrowth24Months: float | None = None
-    yearFounded: int | None = None
-
-
-class CompanyCrmResult(BaseModel):
-    hubspotId: str
-    name: str
-    created: bool
-    industryHubspot: str | None = None
-    aiNoteSuccess: bool
-    noteId: str | None = None
-
-
-class ContactCrmInput(BaseModel):
-    email: str = Field(..., examples=["emanuel@staynido.com"])
-    firstName: str = ""
-    lastName: str = ""
-    title: str = ""
-    city: str = ""
-    state: str = ""
-    country: str = ""
-    linkedinUrl: str = ""
-    linkedinUid: str = ""
-    aiContactSummary: str = Field("", description="Also posted as a note on the contact.")
-    companyHubspotId: str = Field("", description="Associates the contact to this company.")
-
-
-class ContactCrmResult(BaseModel):
-    hubspotId: str
-    email: str
-    associatedCompany: bool
-    aiNoteSuccess: bool
-    noteId: str | None = None
-
-
-class NoteInput(BaseModel):
-    content: str
-    associated_hubspot_id: str
-    contact_company_deal: Literal["company", "contact"]
-
-
-class NoteResult(BaseModel):
-    noteId: str
 
 
 def company_properties(data: CompanyCrmInput) -> tuple[dict, str | None]:
@@ -172,3 +113,50 @@ async def upsert_contact(clients: Clients, data: ContactCrmInput) -> ContactCrmR
         aiNoteSuccess=note_id is not None,
         noteId=note_id,
     )
+
+
+async def run_company_crm(clients: Clients, data: CompanyCrmInput) -> CompanyCrmResult:
+    return await upsert_company(clients, data)
+
+
+async def run_contact_crm(clients: Clients, data: ContactCrmInput) -> ContactCrmResult:
+    return await upsert_contact(clients, data)
+
+
+async def run_note(clients: Clients, data: NoteInput) -> NoteResult:
+    # Antes vivía inline en routes.py; ahora es un flow como los demás.
+    note_id = await clients.hubspot.create_note(
+        data.content, data.contact_company_deal, data.associated_hubspot_id
+    )
+    return NoteResult(noteId=note_id)
+
+
+specs = (
+    FlowSpec(
+        slug="crm-company",
+        title="Company CRM Add/Update",
+        input_model=CompanyCrmInput,
+        response_model=CompanyCrmResult,
+        run=run_company_crm,
+        replaces="Company CRM Add/Update",
+        summary="Create or update a HubSpot company (matched by domain) and post its AI note",
+    ),
+    FlowSpec(
+        slug="crm-contact",
+        title="Contact CRM Add/Update",
+        input_model=ContactCrmInput,
+        response_model=ContactCrmResult,
+        run=run_contact_crm,
+        replaces="Contact CRM Add/Update",
+        summary="Create or update a HubSpot contact (by email) and link it to a company",
+    ),
+    FlowSpec(
+        slug="crm-note",
+        title="Post Note to HubSpot",
+        input_model=NoteInput,
+        response_model=NoteResult,
+        run=run_note,
+        replaces="Post Note to Hubspot",
+        summary="Post a note to a HubSpot company or contact",
+    ),
+)

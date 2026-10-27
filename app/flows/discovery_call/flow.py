@@ -16,13 +16,11 @@ import asyncio
 import logging
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
-
-from ..clients import Clients
-from ..config import NotConfigured
-from ..domain.emails import attendee_emails
-from ..domain.naming import company_name_from_url, split_full_name
-from ..domain.slack_messages import (
+from app.clients import Clients
+from app.config import NotConfigured
+from app.domain.emails import attendee_emails
+from app.domain.naming import company_name_from_url, split_full_name
+from app.domain.slack_messages import (
     SlackCompany,
     SlackContact,
     SlackMessages,
@@ -30,80 +28,19 @@ from ..domain.slack_messages import (
     format_event_date,
     hubspot_record_url,
 )
-from ..runs import record_step
-from .attendees import EnrichedContact, enrich_contacts
-from .company import CompanyEnrichment, enrich_company
-from .crm import CompanyCrmInput, ContactCrmInput, upsert_company, upsert_contact
-from .team_communications import NO_COMMUNICATIONS, search_team_communications
+from app.flows.attendees import EnrichedContact, enrich_contacts
+from app.flows.company import CompanyEnrichment, enrich_company
+from app.flows.crm import CompanyCrmInput, ContactCrmInput, upsert_company, upsert_contact
+from app.flows.registry import FlowSpec
+from app.flows.team_communications import NO_COMMUNICATIONS, search_team_communications
+from app.runs import record_step
+
+from .schemas import DiscoveryCallInput, DiscoveryCallResult
 
 logger = logging.getLogger(__name__)
 
 COMPANY_ATTEMPTS = 3
 COMPANY_RETRY_SECONDS = 5.0
-
-
-class GuestEmail(BaseModel):
-    model_config = ConfigDict(extra="allow")
-
-    email: str
-    name: str = ""
-    firstName: str = ""
-    lastName: str = ""
-
-
-class DiscoveryCallInput(BaseModel):
-    companyName: str = ""
-    primaryContactName: str = ""
-    primaryContactEmail: str
-    companyUrl: str = ""
-    additionalNotes: str = ""
-    guestEmails: list[GuestEmail] = []
-    eventTitle: str = ""
-    organizerEmail: str = ""
-    eventTypeUri: str = ""
-    dry_run: bool = Field(
-        False,
-        description=(
-            "Research everything but write nothing outside: skips the event edge function, "
-            "HubSpot and Slack, and returns the Slack messages that would have been sent."
-        ),
-    )
-    # Solo se usan con dry_run, en lugar de lo que devolvería la edge function.
-    eventStartDateTime: str | None = Field(None, description="dry_run only (ISO 8601).")
-    eventTimeZone: str | None = Field(None, description="dry_run only (IANA zone).")
-
-    model_config = ConfigDict(
-        json_schema_extra={
-            "examples": [
-                {
-                    "companyName": "Nido",
-                    "primaryContactName": "Emanuel Ituarte",
-                    "primaryContactEmail": "emanuel@staynido.com",
-                    "companyUrl": "staynido.com",
-                    "guestEmails": [
-                        {
-                            "email": "emanuel@staynido.com",
-                            "firstName": "Emanuel",
-                            "lastName": "Ituarte",
-                        }
-                    ],
-                    "eventTitle": "Nido + Handoff | Discovery Call",
-                    "organizerEmail": "david@yourhandoff.com",
-                    "dry_run": True,
-                }
-            ]
-        }
-    )
-
-
-class DiscoveryCallResult(BaseModel):
-    event: dict[str, Any]
-    attendee_emails: list[str]
-    company: dict[str, Any]
-    contacts: list[dict[str, Any]]
-    communications_summary: str
-    hubspot: dict[str, Any]
-    slack: dict[str, Any]
 
 
 # --- Paquetes para HubSpot (antes "Prepare Company/Contact CRM Package") -----
@@ -385,3 +322,18 @@ async def run_discovery_call(clients: Clients, data: DiscoveryCallInput) -> Disc
         hubspot={"companyId": company_id, "contactIds": contact_ids},
         slack=slack,
     )
+
+
+async def run(clients: Clients, data: DiscoveryCallInput) -> dict:
+    return await run_discovery_call(clients, data)
+
+
+spec = FlowSpec(
+    slug="discovery-call-booked",
+    title="Discovery Call Booked",
+    input_model=DiscoveryCallInput,
+    run=run,
+    mode="async",
+    replaces="Discovery Call Booked",
+    summary="Run the Discovery Call Booked flow",
+)

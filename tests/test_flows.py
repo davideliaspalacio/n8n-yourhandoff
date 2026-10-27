@@ -192,7 +192,7 @@ async def test_discovery_call_degrades_when_research_fails(clients, mock, fake_l
         return_value=httpx.Response(500)
     )
     fake_llm.fail_stages.add("team_communications")
-    import app.flows.discovery_call as dc
+    import app.flows.discovery_call.flow as dc
 
     dc.COMPANY_RETRY_SECONDS = 0
     result = await run_discovery_call(clients, DiscoveryCallInput(**BOOKING))
