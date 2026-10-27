@@ -4,66 +4,70 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Handoff Flows</title>
+<link rel="stylesheet" href="vendor/bootstrap.min.css">
 <style>
-:root { --bg:#fff; --fg:#1a1a1a; --muted:#667; --line:#e2e4ea; --card:#f6f7f9;
-        --ok:#157f3d; --bad:#c0392b; --run:#b7791f; --accent:#2457d6; }
-@media (prefers-color-scheme: dark) {
-  :root { --bg:#111418; --fg:#e8eaed; --muted:#99a; --line:#2a2f37; --card:#1a1f26;
-          --ok:#4cc38a; --bad:#ff7b6b; --run:#e2b93d; --accent:#7aa2ff; }
-}
-* { box-sizing:border-box } body { margin:0; background:var(--bg); color:var(--fg);
-  font:15px/1.5 ui-sans-serif, system-ui, sans-serif }
-header { display:flex; gap:1rem; align-items:center; padding:.8rem 1rem;
-  border-bottom:1px solid var(--line); flex-wrap:wrap }
-header h1 { font-size:1.05rem; margin:0 }
-nav a { color:var(--muted); text-decoration:none; padding:.25rem .6rem; border-radius:6px }
-nav a.active { color:var(--fg); background:var(--card) }
-#key-btn { margin-left:auto; font-size:.8rem }
-main { padding:1rem; max-width:1100px; margin:0 auto }
-table { width:100%; border-collapse:collapse; margin:.8rem 0 }
-th, td { text-align:left; padding:.45rem .6rem; border-bottom:1px solid var(--line);
-  vertical-align:top; font-size:.9rem }
-th { color:var(--muted); font-weight:600 }
-tr.link { cursor:pointer } tr.link:hover { background:var(--card) }
-.status { font-weight:600 } .status.succeeded { color:var(--ok) }
-.status.failed { color:var(--bad) } .status.running { color:var(--run) }
-.pill { background:var(--card); border-radius:999px; padding:.1rem .55rem; font-size:.78rem }
-button, select, input { font:inherit; padding:.35rem .7rem; border-radius:6px;
-  border:1px solid var(--line); background:var(--card); color:var(--fg) }
-button.primary { background:var(--accent); color:#fff; border-color:var(--accent); cursor:pointer }
-pre { background:var(--card); padding:.7rem; border-radius:8px; overflow:auto;
-  font-size:.8rem; max-height:22rem }
-.filters { display:flex; gap:.5rem; flex-wrap:wrap; align-items:center }
-.muted { color:var(--muted) } .err { color:var(--bad) }
-.step { border-left:3px solid var(--line); padding:.2rem 0 .2rem .8rem; margin:.3rem 0 }
-.step.failed { border-color:var(--bad) } .step.succeeded { border-color:var(--ok) }
-a { color:var(--accent) }
-.pipe { display:flex; flex-wrap:wrap; align-items:center; gap:.4rem .2rem; margin:.6rem 0 }
-.node { display:flex; align-items:center; gap:.5rem; padding:.5rem .8rem; background:var(--card);
-  border:1px solid var(--line); border-left:4px solid var(--run); border-radius:8px;
-  cursor:pointer; font:inherit; color:var(--fg) }
-.node:hover, .node.sel { border-color:var(--accent); border-left-color:var(--run) }
-.node.succeeded { border-left-color:var(--ok) } .node.failed { border-left-color:var(--bad) }
-.node .ico { font-weight:700; color:var(--run) }
-.node.succeeded .ico { color:var(--ok) } .node.failed .ico { color:var(--bad) }
-.arrow { color:var(--muted); padding:0 .15rem }
-.pipe-detail { background:var(--card); border:1px solid var(--line); border-radius:8px;
-  padding:.6rem .8rem; margin:.4rem 0 }
-.pipe-detail pre { margin:.4rem 0 0 }
+:root { --ok:var(--bs-success); --bad:var(--bs-danger); --run:var(--bs-warning); }
+body { background:var(--bs-tertiary-bg); }
+.navbar { background:var(--bs-body-bg); border-bottom:1px solid var(--bs-border-color); }
+.navbar-brand { font-weight:700; letter-spacing:-.01em; }
+.navbar-brand .dot { display:inline-block; width:.6rem; height:.6rem; border-radius:50%;
+  background:var(--bs-primary); margin-right:.5rem; }
+main { padding-top:1.5rem; padding-bottom:3rem; }
+h2.page-title { font-size:1.5rem; font-weight:700; letter-spacing:-.01em; }
+.card { border-color:var(--bs-border-color); }
+.card-header { font-weight:600; background:var(--bs-body-bg); }
+.table > :not(caption) > * > * { padding:.7rem .9rem; }
+.table thead th { font-size:.72rem; text-transform:uppercase; letter-spacing:.05em;
+  color:var(--bs-secondary-color); font-weight:600; background:var(--bs-body-bg); }
+.card > .table-responsive > .table, .card > .table { margin-bottom:0; }
+tr.link { cursor:pointer; }
+.stat-label { font-size:.72rem; text-transform:uppercase; letter-spacing:.05em;
+  color:var(--bs-secondary-color); font-weight:600; }
+.stat-value { font-size:1.5rem; font-weight:700; line-height:1.2; }
+.empty { text-align:center; padding:2.5rem 1rem; color:var(--bs-secondary-color); }
+pre { background:var(--bs-tertiary-bg); border:1px solid var(--bs-border-color);
+  border-radius:var(--bs-border-radius); padding:.75rem; overflow:auto; font-size:.8rem;
+  max-height:22rem; margin:0; }
+/* pipeline */
+.pipe { display:flex; flex-wrap:wrap; align-items:center; gap:.6rem .25rem; padding:.25rem 0; }
+.node { display:inline-flex; align-items:center; gap:.5rem; padding:.55rem .9rem;
+  background:var(--bs-body-bg); color:var(--bs-body-color); font:inherit; font-weight:500;
+  border:2px solid var(--bs-warning); border-radius:.75rem; cursor:pointer;
+  transition:box-shadow .15s, transform .15s; }
+.node:hover { box-shadow:0 .25rem .75rem rgba(0,0,0,.15); transform:translateY(-1px); }
+.node.succeeded { border-color:var(--bs-success); } .node.failed { border-color:var(--bs-danger); }
+.node.sel { box-shadow:0 0 0 .25rem rgba(var(--bs-primary-rgb), .25); }
+.node .ico { display:inline-flex; align-items:center; justify-content:center; width:1.4rem;
+  height:1.4rem; border-radius:50%; font-size:.8rem; font-weight:700; color:#fff;
+  background:var(--bs-warning); }
+.node.succeeded .ico { background:var(--bs-success); } .node.failed .ico { background:var(--bs-danger); }
+.arrow { display:inline-flex; align-items:center; width:1.6rem; color:var(--bs-secondary-color);
+  justify-content:center; }
+.pipe-detail { background:var(--bs-body-bg); border:1px solid var(--bs-border-color);
+  border-radius:var(--bs-border-radius); padding:.9rem 1rem; margin:.75rem 0 0;
+  box-shadow:var(--bs-box-shadow-sm); }
+.pipe-detail pre { margin:.6rem 0 0; }
+@media (max-width:575.98px) { .arrow { transform:none; width:1rem; } }
 </style>
 </head>
 <body>
-<header>
-  <h1>Handoff Flows</h1>
-  <nav>
-    <a href="#/flows" data-tab="flows">Flows</a>
-    <a href="#/runs" data-tab="runs">Runs</a>
-    <a href="#/costs" data-tab="costs">Costs</a>
-  </nav>
-  <button id="key-btn"></button>
-</header>
-<main id="view">Loading…</main>
+<nav class="navbar navbar-expand-sm">
+  <div class="container-xxl gap-2">
+    <span class="navbar-brand mb-0 me-3"><span class="dot"></span>Handoff Flows</span>
+    <ul class="nav nav-pills flex-row" id="tabs">
+      <li class="nav-item"><a class="nav-link" href="#/flows" data-tab="flows">Flows</a></li>
+      <li class="nav-item"><a class="nav-link" href="#/runs" data-tab="runs">Runs</a></li>
+      <li class="nav-item"><a class="nav-link" href="#/costs" data-tab="costs">Costs</a></li>
+    </ul>
+    <button id="key-btn" type="button" class="btn btn-sm btn-outline-secondary ms-auto"></button>
+  </div>
+</nav>
+<main id="view" class="container-xxl">Loading…</main>
 <script>
+const setTheme = () => document.documentElement.setAttribute('data-bs-theme',
+  matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+setTheme();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', setTheme);
 const view = document.getElementById('view');
 const esc = s => String(s ?? '').replace(/[&<>"']/g,
   c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -83,19 +87,23 @@ async function api(path, opts = {}) {
   return r.json();
 }
 
-const statusCell = s => `<span class="status ${esc(s)}">${esc(s)}</span>`;
+const badgeCls = s => s === 'succeeded' ? 'text-bg-success' : s === 'failed' ? 'text-bg-danger'
+  : s === 'running' ? 'text-bg-warning' : 'text-bg-secondary';
+const statusCell = (s, big) => `<span class="badge ${badgeCls(s)}${big ? ' fs-6' : ''}">${esc(s)}</span>`;
+const empty = html => `<div class="empty">${html}</div>`;
+const pill = t => `<span class="badge rounded-pill text-bg-light border">${esc(t)}</span>`;
 
 // n8n-style pipeline: connected nodes, click a node to toggle its detail panel.
 // Steps are kept in a registry so onclick only passes small numeric ids.
 const pipes = [];
 function pipelineHtml(steps) {
   steps = steps || [];
-  if (!steps.length) return '<p class="muted">No steps recorded.</p>';
+  if (!steps.length) return empty('No steps recorded.');
   const pid = pipes.push(steps) - 1;
   const cls = s => s === 'succeeded' || s === 'failed' ? s : 'other';
   const ico = s => s === 'succeeded' ? '✓' : s === 'failed' ? '✗' : '●';
   return `<div class="pipe" id="pipe-${pid}">` + steps.map((s, i) =>
-    (i ? '<span class="arrow">─▶</span>' : '') +
+    (i ? '<span class="arrow">&#10230;</span>' : '') +
     `<button type="button" class="node ${cls(s.status)}" onclick="showStep(${pid}, ${i})"
        title="${esc(s.status)}"><span class="ico">${ico(s.status)}</span>
        <span>${esc(s.name)}</span></button>`).join('') +
@@ -110,28 +118,32 @@ function showStep(pid, i) {
   box.dataset.sel = String(i);
   box.hidden = same;
   if (same) return;
-  box.innerHTML = `<strong>${esc(s.name)}</strong> ${statusCell(s.status)}
-    <span class="muted">· ${when(s.at)}</span>` +
+  box.innerHTML = `<div class="d-flex align-items-center gap-2"><strong>${esc(s.name)}</strong>
+    ${statusCell(s.status)}
+    <span class="text-body-secondary small">· ${when(s.at)}</span></div>` +
     (s.detail ? `<pre>${esc(JSON.stringify(s.detail, null, 2))}</pre>`
-              : '<div class="muted">No detail.</div>');
+              : '<div class="text-body-secondary small mt-2">No detail.</div>');
 }
 
 async function renderFlows() {
   const { flows } = await api('/v1/flows');
-  view.innerHTML = `<h2>Flows <span class="muted">(${flows.length})</span></h2>
-  <table><tr><th>Flow</th><th>Mode</th><th>Replaces (n8n)</th><th>Last run</th>
-  <th>Runs 7d</th><th>OK 7d</th><th>Cost 7d</th></tr>` + flows.map(f => `
+  view.innerHTML = `<h2 class="page-title mb-3">Flows <span class="text-body-secondary fw-normal">(${flows.length})</span></h2>
+  <div class="card shadow-sm">` + (flows.length ? `<div class="table-responsive"><table class="table table-hover align-middle">
+  <thead><tr><th>Flow</th><th>Mode</th><th>Replaces (n8n)</th><th>Last run</th>
+  <th class="text-end">Runs 7d</th><th class="text-end">OK 7d</th><th class="text-end">Cost 7d</th></tr></thead><tbody>` + flows.map(f => `
   <tr class="link" onclick="location.hash='#/flows/${encodeURIComponent(f.slug)}'">
     <td><strong>${esc(f.title)}</strong>
-        <a href="#/runs?flow=${encodeURIComponent(f.slug)}" class="muted"
+        <a href="#/runs?flow=${encodeURIComponent(f.slug)}" class="small ms-1 link-secondary"
            onclick="event.stopPropagation()">runs</a>
-        <br><span class="muted">${esc(f.endpoint)}</span></td>
-    <td><span class="pill">${esc(f.mode)}</span></td>
-    <td class="muted">${esc(f.replaces)}</td>
-    <td>${f.stats.last_status ? statusCell(f.stats.last_status) + '<br>' : ''}
-        <span class="muted">${when(f.stats.last_run_at)}</span></td>
-    <td>${f.stats.runs}</td><td>${f.stats.succeeded}</td><td>${money(f.stats.cost_usd)}</td>
-  </tr>`).join('') + '</table>';
+        <div class="small text-body-secondary font-monospace">${esc(f.endpoint)}</div></td>
+    <td><span class="badge text-bg-secondary">${esc(f.mode)}</span></td>
+    <td class="text-body-secondary">${esc(f.replaces)}</td>
+    <td>${f.stats.last_status ? statusCell(f.stats.last_status) + ' ' : ''}
+        <span class="small text-body-secondary">${when(f.stats.last_run_at)}</span></td>
+    <td class="font-monospace text-end">${f.stats.runs}</td>
+    <td class="font-monospace text-end">${f.stats.succeeded}</td>
+    <td class="font-monospace text-end">${money(f.stats.cost_usd)}</td>
+  </tr>`).join('') + '</tbody></table></div>' : empty('No flows registered.')) + '</div>';
 }
 
 async function renderFlow(slug) {
@@ -145,19 +157,37 @@ async function renderFlow(slug) {
   const last = ok.items[0] ? await api('/v1/runs/' + ok.items[0].id) : null;
   const runsLink = `#/runs?flow=${encodeURIComponent(slug)}`;
   const failedLink = `#/runs?${new URLSearchParams({ flow: slug, status: 'failed' })}`;
-  view.innerHTML = `<p><a href="#/flows">← flows</a></p>
-  <h2>${esc(f.title)} <span class="pill">${esc(f.mode)}</span></h2>
-  <p class="muted">${esc(f.slug)} · ${esc(f.endpoint)}<br>Replaces (n8n): ${esc(f.replaces)}</p>
-  <p>Last 7 days: <strong>${f.stats.runs}</strong> runs · <strong>${f.stats.succeeded}</strong> OK
-    · cost ${money(f.stats.cost_usd)}
-    ${f.stats.last_status ? `· last ${statusCell(f.stats.last_status)} ${when(f.stats.last_run_at)}` : ''}</p>
-  <p><a href="${runsLink}">View runs</a></p>
-  <h3>Process <span class="muted">${last
-    ? `— from the latest successful run <a href="#/runs/${esc(last.id)}">${when(last.created_at)}</a>`
-    : ''}</span></h3>
-  ${last ? pipelineHtml(last.steps)
-    : `<p class="muted">No successful runs yet — the process will appear after the first run.${
-        bad.total ? ` <a href="${failedLink}">View failed runs</a>` : ''}</p>`}`;
+  const stat = (label, value) => `<div class="col-6 col-md-3"><div class="card shadow-sm h-100">
+    <div class="card-body"><div class="stat-label">${label}</div>${value}</div></div></div>`;
+  view.innerHTML = `<a href="#/flows" class="small link-secondary text-decoration-none">← flows</a>
+  <div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mt-2 mb-3">
+    <div>
+      <h2 class="page-title mb-1">${esc(f.title)}
+        <span class="badge text-bg-secondary align-middle fs-6">${esc(f.mode)}</span>
+        <span class="badge text-bg-light border align-middle fs-6 font-monospace">${esc(f.slug)}</span></h2>
+      <div class="text-body-secondary"><span class="font-monospace">${esc(f.endpoint)}</span>
+        · Replaces (n8n): ${esc(f.replaces)}</div>
+    </div>
+    <a class="btn btn-outline-primary btn-sm" href="${runsLink}">View runs</a>
+  </div>
+  <div class="row g-3 mb-4">
+    ${stat('Runs 7d', `<div class="stat-value">${f.stats.runs}</div>`)}
+    ${stat('OK 7d', `<div class="stat-value">${f.stats.succeeded}</div>`)}
+    ${stat('Cost 7d', `<div class="stat-value font-monospace">${money(f.stats.cost_usd)}</div>`)}
+    ${stat('Last run', `<div class="mt-1">${f.stats.last_status ? statusCell(f.stats.last_status) : '<span class="text-body-secondary">—</span>'}</div>
+      <div class="small text-body-secondary mt-1">${when(f.stats.last_run_at)}</div>`)}
+  </div>
+  <div class="card shadow-sm">
+    <div class="card-header d-flex flex-wrap justify-content-between gap-2">
+      <span>Process</span>
+      <span class="small fw-normal text-body-secondary">${last
+        ? `from the latest successful run <a href="#/runs/${esc(last.id)}">${when(last.created_at)}</a>`
+        : ''}</span>
+    </div>
+    <div class="card-body">${last ? pipelineHtml(last.steps)
+      : empty(`No successful runs yet — the process will appear after the first run.${
+          bad.total ? `<div class="mt-2"><a href="${failedLink}">View failed runs</a></div>` : ''}`)}</div>
+  </div>`;
 }
 
 async function renderRuns(params) {
@@ -167,27 +197,32 @@ async function renderRuns(params) {
   if (flow) q.set('flow', flow); if (status) q.set('status', status);
   const data = await api('/v1/runs?' + q);
   const pages = Math.max(1, Math.ceil(data.total / data.per_page));
-  const nav = (p, label) => `<button onclick="location.hash='#/runs?${
+  const nav = (p, label) => `<button type="button" class="btn btn-outline-secondary" onclick="location.hash='#/runs?${
     new URLSearchParams({ ...(flow && { flow }), ...(status && { status }), page: p })}'">${label}</button>`;
-  view.innerHTML = `<h2>Runs <span class="muted">(${data.total})</span></h2>
-  <div class="filters">
-    <input id="f-flow" placeholder="flow slug" value="${esc(flow)}">
-    <select id="f-status">
+  view.innerHTML = `<h2 class="page-title mb-3">Runs <span class="text-body-secondary fw-normal">(${data.total})</span></h2>
+  <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+    <input id="f-flow" class="form-control form-control-sm w-auto" placeholder="flow slug" value="${esc(flow)}">
+    <select id="f-status" class="form-select form-select-sm w-auto">
       ${['', 'running', 'succeeded', 'failed'].map(s =>
         `<option value="${s}" ${s === status ? 'selected' : ''}>${s || 'any status'}</option>`).join('')}
     </select>
-    <button class="primary" id="f-go">Filter</button>
-    <span class="muted">page ${data.page}/${pages}</span>
-    ${data.page > 1 ? nav(data.page - 1, '←') : ''} ${data.page < pages ? nav(data.page + 1, '→') : ''}
+    <button class="btn btn-primary btn-sm" id="f-go">Filter</button>
+    <div class="ms-auto d-flex align-items-center gap-2">
+      <span class="small text-body-secondary">page ${data.page}/${pages}</span>
+      <div class="btn-group btn-group-sm">
+        ${data.page > 1 ? nav(data.page - 1, '←') : ''}${data.page < pages ? nav(data.page + 1, '→') : ''}
+      </div>
+    </div>
   </div>
-  <table><tr><th>When</th><th>Flow</th><th>Status</th><th>Error</th></tr>` +
+  <div class="card shadow-sm">` + (data.items.length ? `<div class="table-responsive"><table class="table table-hover align-middle">
+  <thead><tr><th>When</th><th>Flow</th><th>Status</th><th>Error</th></tr></thead><tbody>` +
   data.items.map(r => `
   <tr class="link" onclick="location.hash='#/runs/${r.id}'">
-    <td>${when(r.created_at)}${r.replay_of ? ' <span class="pill">replay</span>' : ''}${
-      r.dry_run ? ' <span class="pill">dry run</span>' : ''}</td>
+    <td>${when(r.created_at)}${r.replay_of ? ' ' + pill('replay') : ''}${
+      r.dry_run ? ' ' + pill('dry run') : ''}</td>
     <td>${esc(r.flow)}</td><td>${statusCell(r.status)}</td>
-    <td class="err">${esc((r.error || '').slice(0, 90))}</td>
-  </tr>`).join('') + '</table>';
+    <td class="text-danger small">${esc((r.error || '').slice(0, 90))}</td>
+  </tr>`).join('') + '</tbody></table></div>' : empty('No runs match these filters.')) + '</div>';
   document.getElementById('f-go').onclick = () => {
     const q = new URLSearchParams();
     const f = document.getElementById('f-flow').value.trim();
@@ -199,23 +234,28 @@ async function renderRuns(params) {
 
 async function renderRun(id) {
   const run = await api('/v1/runs/' + id);
-  view.innerHTML = `<p><a href="#/runs">← runs</a></p>
-  <h2>${esc(run.flow)} ${statusCell(run.status)}</h2>
-  <p class="muted">run ${esc(run.id)} · ${when(run.created_at)} → ${when(run.finished_at)}
+  const section = (title, body) => `<div class="card shadow-sm mb-3">
+    <div class="card-header">${title}</div><div class="card-body">${body}</div></div>`;
+  const costs = (run.costs || []).length
+    ? '<div class="table-responsive"><table class="table table-sm align-middle mb-0"><thead><tr><th>Provider</th><th>Operation</th><th class="text-end">Units</th><th class="text-end">USD</th></tr></thead><tbody>' +
+      run.costs.map(c => `<tr><td>${esc(c.provider)}</td><td>${esc(c.operation)}</td>
+        <td class="font-monospace text-end">${c.units}</td>
+        <td class="font-monospace text-end">${money(c.cost_usd)}</td></tr>`).join('') + '</tbody></table></div>'
+    : empty('No paid calls.');
+  view.innerHTML = `<a href="#/runs" class="small link-secondary text-decoration-none">← runs</a>
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mt-2 mb-1">
+    <h2 class="page-title mb-0">${esc(run.flow)} ${statusCell(run.status, true)}</h2>
+    <button class="btn btn-primary" id="replay">Replay with same input</button>
+  </div>
+  <p class="text-body-secondary mb-3">run <span class="font-monospace">${esc(run.id)}</span> · ${when(run.created_at)} → ${when(run.finished_at)}
     · cost ${money(run.total_cost_usd)}
     ${run.replay_of ? `· replay of <a href="#/runs/${esc(run.replay_of)}">original</a>` : ''}
-    ${run.dry_run ? '· <span class="pill">dry run</span>' : ''}</p>
-  ${run.error ? `<p class="err">${esc(run.error)}</p>` : ''}
-  <button class="primary" id="replay">Replay with same input</button>
-  <h3>Steps</h3>
-  ${pipelineHtml(run.steps)}
-  <h3>Costs</h3>
-  ${(run.costs || []).length ? '<table><tr><th>Provider</th><th>Operation</th><th>Units</th><th>USD</th></tr>' +
-    run.costs.map(c => `<tr><td>${esc(c.provider)}</td><td>${esc(c.operation)}</td>
-      <td>${c.units}</td><td>${money(c.cost_usd)}</td></tr>`).join('') + '</table>'
-    : '<p class="muted">No paid calls.</p>'}
-  <h3>Input</h3><pre>${esc(JSON.stringify(run.input, null, 2))}</pre>
-  <h3>Output</h3><pre>${esc(JSON.stringify(run.output, null, 2))}</pre>`;
+    ${run.dry_run ? '· ' + pill('dry run') : ''}</p>
+  ${run.error ? `<div class="alert alert-danger">${esc(run.error)}</div>` : ''}
+  ${section('Steps', pipelineHtml(run.steps))}
+  ${section('Costs', costs)}
+  ${section('Input', `<pre>${esc(JSON.stringify(run.input, null, 2))}</pre>`)}
+  ${section('Output', `<pre>${esc(JSON.stringify(run.output, null, 2))}</pre>`)}`;
   document.getElementById('replay').onclick = async () => {
     if (!confirm('Re-run this flow with the same input?')) return;
     try {
@@ -231,12 +271,14 @@ async function renderCosts() {
     api('/v1/costs/summary?group_by=provider&days=30'),
   ]);
   const table = (items, col) => items.length
-    ? `<table><tr><th>${col}</th><th>USD</th></tr>` + items.map(i =>
-        `<tr><td>${esc(i[col.toLowerCase()])}</td><td>${money(i.cost_usd)}</td></tr>`).join('') + '</table>'
-    : '<p class="muted">No costs in the last 30 days.</p>';
-  view.innerHTML = `<h2>Costs — last 30 days</h2>
-    <h3>By provider</h3>${table(byProvider.items, 'Provider')}
-    <h3>By day</h3>${table(byDay.items, 'Day')}`;
+    ? `<div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>${col}</th><th class="text-end">USD</th></tr></thead><tbody>` + items.map(i =>
+        `<tr><td>${esc(i[col.toLowerCase()])}</td><td class="font-monospace text-end">${money(i.cost_usd)}</td></tr>`).join('') + '</tbody></table></div>'
+    : empty('No costs in the last 30 days.');
+  const card = (title, body) => `<div class="card shadow-sm mb-3">
+    <div class="card-header">${title}</div>${body}</div>`;
+  view.innerHTML = `<h2 class="page-title mb-3">Costs <span class="text-body-secondary fw-normal">— last 30 days</span></h2>
+    ${card('By provider', table(byProvider.items, 'Provider'))}
+    ${card('By day', table(byDay.items, 'Day'))}`;
 }
 
 async function render() {
@@ -244,10 +286,10 @@ async function render() {
   const [path, query] = hash.slice(2).split('?');
   const params = new URLSearchParams(query || '');
   const tab = path.split('/')[0] || 'flows';
-  document.querySelectorAll('nav a').forEach(a =>
+  document.querySelectorAll('#tabs a').forEach(a =>
     a.classList.toggle('active', a.dataset.tab === tab));
   document.getElementById('key-btn').textContent = getKey() ? 'API key ✓' : 'Set API key';
-  view.innerHTML = '<p class="muted">Loading…</p>';
+  view.innerHTML = empty('Loading…');
   try {
     if (path.startsWith('runs/')) await renderRun(path.split('/')[1]);
     else if (path.startsWith('flows/')) await renderFlow(decodeURIComponent(path.split('/')[1]));
@@ -255,7 +297,7 @@ async function render() {
     else if (tab === 'costs') await renderCosts();
     else await renderFlows();
   } catch (e) {
-    view.innerHTML = `<p class="err">${esc(e.message)}</p>`;
+    view.innerHTML = `<div class="alert alert-danger">${esc(e.message)}</div>`;
   }
 }
 document.getElementById('key-btn').onclick = () => askKey();
