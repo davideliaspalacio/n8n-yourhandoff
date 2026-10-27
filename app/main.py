@@ -9,6 +9,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
+from .api.dashboard import router as dashboard_router
 from .api.flow_routes import build_flows_router
 from .api.routes import router
 from .clients import Clients
@@ -76,6 +77,7 @@ def create_app(
             {"name": "Research", "description": "Enrichment and AI summaries."},
             {"name": "CRM", "description": "HubSpot writes."},
             {"name": "Runs", "description": "Execution log and cost."},
+            {"name": "Dashboard", "description": "Data behind /ui."},
         ],
     )
     app.state.settings = settings
@@ -83,6 +85,7 @@ def create_app(
     app.state.flow_registry = registry
     app.include_router(router)
     app.include_router(build_flows_router(registry))
+    app.include_router(dashboard_router)
     app.mount("/ui", StaticFiles(directory=UI_DIR, html=True), name="ui")
 
     @app.get("/health", tags=["Health"], summary="Liveness check")
@@ -92,5 +95,7 @@ def create_app(
     return app
 
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+from .obslog import setup_logging  # noqa: E402
+
+setup_logging(get_settings().log_format)
 app = create_app()
