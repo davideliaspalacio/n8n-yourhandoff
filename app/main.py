@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from .api.flow_routes import build_flows_router
 from .api.routes import router
@@ -15,6 +17,9 @@ from .flows.registry import FlowSpec, discover
 from .runs import MemoryRunStore, PostgresRunStore, RunStore
 
 logger = logging.getLogger(__name__)
+
+# Dashboard estático (SPA de un archivo, sin build step)
+UI_DIR = Path(__file__).resolve().parent / "ui" / "static"
 
 DESCRIPTION = """
 Handoff automation flows, migrated from n8n.
@@ -78,6 +83,7 @@ def create_app(
     app.state.flow_registry = registry
     app.include_router(router)
     app.include_router(build_flows_router(registry))
+    app.mount("/ui", StaticFiles(directory=UI_DIR, html=True), name="ui")
 
     @app.get("/health", tags=["Health"], summary="Liveness check")
     async def health() -> dict:
