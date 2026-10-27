@@ -191,4 +191,10 @@ spec = FlowSpec(
     mode="async",
     replaces="Sync Hubspot to Alma",
     summary="Sync recently modified HubSpot contacts and their companies into Alma's Supabase",
+    graph=(
+        {"id": "hubspot_search", "label": "HubSpot search", "to": ("filter",)},
+        {"id": "filter", "label": "Filter", "to": ("companies_upsert",)},
+        {"id": "companies_upsert", "label": "Upsert companies", "to": ("contacts_upsert",)},
+        {"id": "contacts_upsert", "label": "Upsert contacts", "to": ()},
+    ),
 )

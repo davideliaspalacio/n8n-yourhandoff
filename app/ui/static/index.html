@@ -45,6 +45,7 @@ pre { background:var(--bs-tertiary-bg); border:1px solid var(--bs-border-color);
 .cv-node.succeeded .box { stroke:var(--bs-success); } .cv-node.failed .box { stroke:var(--bs-danger); }
 .cv-node.succeeded .bar, .cv-node.succeeded .ico { fill:var(--bs-success); }
 .cv-node.failed .bar, .cv-node.failed .ico { fill:var(--bs-danger); }
+.cv-node.none .box { stroke:var(--bs-secondary); } .cv-node.none .bar, .cv-node.none .ico { fill:var(--bs-secondary); }
 .cv-node:hover .box, .cv-node:focus-visible .box { stroke-width:3; }
 .cv-node.sel .box { stroke-width:3.5; filter:drop-shadow(0 0 6px var(--bs-primary)); }
 .cv-node text { fill:var(--bs-body-color); font:500 13px var(--bs-font-sans-serif); pointer-events:none; }
@@ -115,19 +116,19 @@ function wrapName(name) {
   const out = [lines[0], rest].filter(Boolean);
   return out.map(l => l.length > max ? l.slice(0, max - 1) + '…' : l);
 }
-function pipelineHtml(steps) {
-  steps = steps || [];
-  if (!steps.length) return empty('No steps recorded.');
+// Shared canvas: nodes already positioned {x, y, label, status, at?, detail?, unrun?},
+// edges {from, to} as node indexes. Returns the SVG with pan/zoom/fit/click wired up.
+function canvasHtml(nodes, edges, aria) {
   const pid = pipes.length;
-  const pos = steps.map((_, i) => ({ x: (i % PER_ROW) * GX, y: Math.floor(i / PER_ROW) * GY }));
-  const xs = pos.map(p => p.x), ys = pos.map(p => p.y);
+  const xs = nodes.map(p => p.x), ys = nodes.map(p => p.y);
   const fit = { x: Math.min(...xs) - PAD, y: Math.min(...ys) - PAD,
     w: Math.max(...xs) + NW + PAD * 2, h: Math.max(...ys) + NH + PAD * 2 };
-  pipes.push({ steps, vb: { ...fit }, fit });
-  const cls = s => s === 'succeeded' || s === 'failed' ? s : 'other';
-  const glyph = s => s === 'succeeded' ? '✓' : s === 'failed' ? '✗' : '●';
-  const edges = pos.slice(1).map((b, k) => {
-    const a = pos[k], x1 = a.x + NW, y1 = a.y + NH / 2, x2 = b.x, y2 = b.y + NH / 2;
+  pipes.push({ nodes, vb: { ...fit }, fit });
+  const cls = s => s === 'succeeded' || s === 'failed' || s === 'none' ? s : 'other';
+  const glyph = s => s === 'succeeded' ? '✓' : s === 'failed' ? '✗' : s === 'none' ? '○' : '●';
+  const edgeSvg = edges.map(({ from, to }) => {
+    const a = nodes[from], b = nodes[to];
+    const x1 = a.x + NW, y1 = a.y + NH / 2, x2 = b.x, y2 = b.y + NH / 2;
     if (b.x <= a.x) { // row wrap: U shape through the lane in the row gap
       const yl = a.y + NH + (GY - NH) / 2, xi = x2 - 50;
       return `<path class="cv-edge" d="M${x1} ${y1} C${x1 + 50} ${y1} ${x1 + 50} ${yl} ${x1} ${yl}` +
@@ -136,12 +137,13 @@ function pipelineHtml(steps) {
     const dx = Math.min(80, (x2 - x1) / 2);
     return `<path class="cv-edge" d="M${x1} ${y1} C${x1 + dx} ${y1} ${x2 - dx} ${y2} ${x2} ${y2}"/>`;
   }).join('');
-  const nodes = steps.map((s, i) => {
-    const { x, y } = pos[i], lines = wrapName(s.name);
+  const nodeSvg = nodes.map((s, i) => {
+    const { x, y } = s, lines = wrapName(s.label);
     const ty = lines.length > 1 ? y + 27 : y + 35;
+    const st = s.status === 'none' ? 'not run' : s.status;
     return `<g class="cv-node ${cls(s.status)}" data-i="${i}" tabindex="0" role="button"
-        aria-label="${esc(s.name)}: ${esc(s.status)}">
-      <title>${esc(s.name)} — ${esc(s.status)}</title>
+        aria-label="${esc(s.label)}: ${esc(st)}">
+      <title>${esc(s.label)} — ${esc(st)}</title>
       <rect class="box" x="${x}" y="${y}" width="${NW}" height="${NH}" rx="10"/>
       <rect class="bar" x="${x + 1}" y="${y + 6}" width="6" height="${NH - 12}" rx="3"/>
       <circle class="ico" cx="${x + 26}" cy="${y + NH / 2}" r="10"/>
@@ -153,9 +155,44 @@ function pipelineHtml(steps) {
   }).join('');
   return `<div class="pipe-cv" id="pipe-${pid}" data-pid="${pid}">
     <button type="button" class="btn btn-sm btn-outline-secondary fit" onclick="fitPipe(${pid})">Fit</button>
-    <svg viewBox="${fit.x} ${fit.y} ${fit.w} ${fit.h}" role="group" aria-label="Process steps">
-      <g>${edges}</g><g>${nodes}</g></svg></div>
+    <svg viewBox="${fit.x} ${fit.y} ${fit.w} ${fit.h}" role="group" aria-label="${esc(aria)}">
+      <g>${edgeSvg}</g><g>${nodeSvg}</g></svg></div>
     <div class="pipe-detail" id="pipe-detail-${pid}" hidden></div>`;
+}
+// Runs: recorded steps in a serpentine row layout.
+function pipelineHtml(steps) {
+  steps = steps || [];
+  if (!steps.length) return empty('No steps recorded.');
+  const nodes = steps.map((s, i) => ({ x: (i % PER_ROW) * GX, y: Math.floor(i / PER_ROW) * GY,
+    label: s.name, status: s.status, at: s.at, detail: s.detail }));
+  return canvasHtml(nodes, steps.slice(1).map((_, k) => ({ from: k, to: k + 1 })), 'Process steps');
+}
+// Flows: declared graph in layers (depth = longest path from a root). statusById maps a
+// node id to the step of the latest run; nodes without a step stay neutral.
+function graphHtml(graph, statusById) {
+  graph = graph || []; statusById = statusById || {};
+  if (!graph.length) return empty('No process declared.');
+  const idx = new Map(graph.map((n, i) => [n.id, i]));
+  const depth = graph.map(() => 0), indeg = graph.map(() => 0);
+  graph.forEach(n => n.to.forEach(t => { if (idx.has(t)) indeg[idx.get(t)]++; }));
+  const queue = graph.map((_, i) => i).filter(i => !indeg[i]);
+  while (queue.length) { // Kahn: relax longest-path depths in topological order
+    const i = queue.shift();
+    graph[i].to.forEach(t => {
+      const j = idx.get(t); if (j === undefined) return;
+      depth[j] = Math.max(depth[j], depth[i] + 1);
+      if (--indeg[j] === 0) queue.push(j);
+    });
+  }
+  const row = {};
+  const nodes = graph.map((n, i) => {
+    const r = row[depth[i]] = (row[depth[i]] ?? -1) + 1, st = statusById[n.id];
+    return { x: depth[i] * GX, y: r * GY, label: n.label || n.id,
+      status: st ? st.status : 'none', at: st && st.at, detail: st && st.detail, unrun: !st };
+  });
+  const edges = [];
+  graph.forEach((n, i) => n.to.forEach(t => { if (idx.has(t)) edges.push({ from: i, to: idx.get(t) }); }));
+  return canvasHtml(nodes, edges, 'Process graph');
 }
 function applyPipeVb(pid) {
   const el = document.querySelector(`#pipe-${pid} svg`), v = pipes[pid].vb;
@@ -208,13 +245,18 @@ document.addEventListener('keydown', e => {
 function showStep(pid, i) {
   const box = document.getElementById('pipe-detail-' + pid);
   const nodes = document.querySelectorAll(`#pipe-${pid} .cv-node`);
-  const s = pipes[pid].steps[i];
+  const s = pipes[pid].nodes[i];
   const same = box.dataset.sel === String(i) && !box.hidden;
   nodes.forEach((n, j) => n.classList.toggle('sel', !same && j === i));
   box.dataset.sel = String(i);
   box.hidden = same;
   if (same) return;
-  box.innerHTML = `<div class="d-flex align-items-center gap-2"><strong>${esc(s.name)}</strong>
+  if (s.unrun) {
+    box.innerHTML = `<strong>${esc(s.label)}</strong>
+      <div class="text-body-secondary small mt-2">This step has not run yet.</div>`;
+    return;
+  }
+  box.innerHTML = `<div class="d-flex align-items-center gap-2"><strong>${esc(s.label)}</strong>
     ${statusCell(s.status)}
     <span class="text-body-secondary small">· ${when(s.at)}</span></div>` +
     (s.detail ? `<pre>${esc(JSON.stringify(s.detail, null, 2))}</pre>`
@@ -246,11 +288,20 @@ async function renderFlow(slug) {
   const { flows } = await api('/v1/flows');
   const f = flows.find(x => x.slug === slug);
   if (!f) throw new Error('Unknown flow: ' + slug);
-  const [ok, bad] = await Promise.all([
-    api('/v1/runs?' + new URLSearchParams({ flow: slug, status: 'succeeded', per_page: 1 })),
-    api('/v1/runs?' + new URLSearchParams({ flow: slug, status: 'failed', per_page: 1 })),
-  ]);
-  const last = ok.items[0] ? await api('/v1/runs/' + ok.items[0].id) : null;
+  const declared = (f.graph || []).length > 0;
+  let ok = null, bad = null, last = null, latest = null;
+  if (declared) { // declared graph: colour it with the most recent run, whatever its status
+    const l = await api('/v1/runs?' + new URLSearchParams({ flow: slug, per_page: 1 }));
+    latest = l.items[0] ? await api('/v1/runs/' + l.items[0].id) : null;
+  } else {
+    [ok, bad] = await Promise.all([
+      api('/v1/runs?' + new URLSearchParams({ flow: slug, status: 'succeeded', per_page: 1 })),
+      api('/v1/runs?' + new URLSearchParams({ flow: slug, status: 'failed', per_page: 1 })),
+    ]);
+    last = ok.items[0] ? await api('/v1/runs/' + ok.items[0].id) : null;
+  }
+  const statusById = {};
+  ((latest && latest.steps) || []).forEach(st => { statusById[st.name] = st; }); // last write wins
   const runsLink = `#/runs?flow=${encodeURIComponent(slug)}`;
   const failedLink = `#/runs?${new URLSearchParams({ flow: slug, status: 'failed' })}`;
   const stat = (label, value) => `<div class="col-6 col-md-3"><div class="card shadow-sm h-100">
@@ -276,11 +327,14 @@ async function renderFlow(slug) {
   <div class="card shadow-sm">
     <div class="card-header d-flex flex-wrap justify-content-between gap-2">
       <span>Process</span>
-      <span class="small fw-normal text-body-secondary">${last
-        ? `from the latest successful run <a href="#/runs/${esc(last.id)}">${when(last.created_at)}</a>`
+      <span class="small fw-normal text-body-secondary">${declared
+        ? (latest ? `Statuses from the <a href="#/runs/${esc(latest.id)}">latest run</a> · ${when(latest.created_at)}`
+                  : 'No runs yet — showing the declared process')
+        : last ? `from the latest successful run <a href="#/runs/${esc(last.id)}">${when(last.created_at)}</a>`
         : ''}</span>
     </div>
-    <div class="card-body">${last ? pipelineHtml(last.steps)
+    <div class="card-body">${declared ? graphHtml(f.graph, statusById)
+      : last ? pipelineHtml(last.steps)
       : empty(`No successful runs yet — the process will appear after the first run.${
           bad.total ? `<div class="mt-2"><a href="${failedLink}">View failed runs</a></div>` : ''}`)}</div>
   </div>`;

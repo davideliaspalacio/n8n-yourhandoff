@@ -35,6 +35,11 @@ cada flow es un paquete que se registra solo.
 2. `uv run python scripts/new_flow.py <slug> --replaces "<nombre en n8n>"`.
 3. Implementar `schemas.py` (el input es el cuerpo del trigger de n8n) y
    `flow.py`, marcando pasos con `record_step`. Mirar un flow parecido.
+   Declarar `graph` en el `FlowSpec`: nodos `{"id", "label", "to": (ids)}`.
+   Los ids deben coincidir con los nombres de `record_step` (así el último
+   run colorea cada nodo); se permiten nodos solo declarativos. El dashboard
+   pinta el mapa en `#/flows/<slug>` aunque el flow nunca haya corrido, y
+   `validate()` rechaza al arrancar ids duplicados o destinos inexistentes.
 4. Tests con HTTP simulado (respx), como `tests/test_flows.py`. Sin red.
 5. `uv run pytest && uv run ruff check .` en verde.
 6. Deploy; probar con `dry_run` si aplica; revisar el run en `/ui`.

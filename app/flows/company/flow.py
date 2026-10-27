@@ -184,4 +184,14 @@ spec = FlowSpec(
     run=run,
     replaces="Enrich Company (+ Get LinkedIn Data, News + Job Search)",
     summary="Enrich a company (Apollo, Google News, Google Jobs) and summarize it",
+    graph=(
+        {
+            "id": "apollo",
+            "label": "Apollo organization",
+            "to": ("serpapi_google_news", "serpapi_google_jobs"),
+        },
+        {"id": "serpapi_google_news", "label": "Google News", "to": ("summary",)},
+        {"id": "serpapi_google_jobs", "label": "Google Jobs", "to": ("summary",)},
+        {"id": "summary", "label": "LLM summary", "to": ()},
+    ),
 )

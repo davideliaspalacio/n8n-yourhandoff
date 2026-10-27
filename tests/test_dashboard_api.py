@@ -23,7 +23,17 @@ async def _echo(clients, data: EchoInput) -> dict:
     return {"echo": data.text}
 
 
-ECHO = FlowSpec(slug="echo", title="Echo", input_model=EchoInput, run=_echo, replaces="Echo v1")
+ECHO = FlowSpec(
+    slug="echo",
+    title="Echo",
+    input_model=EchoInput,
+    run=_echo,
+    replaces="Echo v1",
+    graph=(
+        {"id": "in", "label": "Input", "to": ("out",)},
+        {"id": "out", "label": "Output", "to": ()},
+    ),
+)
 
 
 @pytest.fixture
@@ -44,6 +54,10 @@ async def test_flows_lists_registry_with_stats(dash):
     [flow] = body["flows"]
     assert flow["slug"] == "echo" and flow["endpoint"] == "/v1/flows/echo"
     assert flow["stats"]["runs"] == 1 and flow["stats"]["succeeded"] == 1
+    assert flow["graph"] == [
+        {"id": "in", "label": "Input", "to": ["out"]},
+        {"id": "out", "label": "Output", "to": []},
+    ]
 
 
 async def test_runs_listing_and_costs(dash):

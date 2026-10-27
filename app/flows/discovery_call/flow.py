@@ -336,4 +336,17 @@ spec = FlowSpec(
     mode="async",
     replaces="Discovery Call Booked",
     summary="Run the Discovery Call Booked flow",
+    graph=(
+        {
+            "id": "event_function",
+            "label": "Calendar event",
+            "to": ("enrich_contacts", "enrich_company", "team_communications"),
+        },
+        {"id": "enrich_contacts", "label": "Enrich contacts", "to": ("hubspot_company",)},
+        {"id": "enrich_company", "label": "Enrich company", "to": ("hubspot_company",)},
+        {"id": "team_communications", "label": "Team communications", "to": ("hubspot_company",)},
+        {"id": "hubspot_company", "label": "HubSpot company", "to": ("hubspot_contacts",)},
+        {"id": "hubspot_contacts", "label": "HubSpot contacts", "to": ("slack",)},
+        {"id": "slack", "label": "Slack message", "to": ()},
+    ),
 )

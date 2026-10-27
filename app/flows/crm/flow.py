@@ -140,6 +140,9 @@ specs = (
         run=run_company_crm,
         replaces="Company CRM Add/Update",
         summary="Create or update a HubSpot company (matched by domain) and post its AI note",
+        graph=(
+            {"id": "crm-company", "label": "Upsert company", "to": ()},
+        ),
     ),
     FlowSpec(
         slug="crm-contact",
@@ -149,6 +152,9 @@ specs = (
         run=run_contact_crm,
         replaces="Contact CRM Add/Update",
         summary="Create or update a HubSpot contact (by email) and link it to a company",
+        graph=(
+            {"id": "crm-contact", "label": "Upsert contact", "to": ()},
+        ),
     ),
     FlowSpec(
         slug="crm-note",
@@ -158,5 +164,8 @@ specs = (
         run=run_note,
         replaces="Post Note to Hubspot",
         summary="Post a note to a HubSpot company or contact",
+        graph=(
+            {"id": "crm-note", "label": "Post note", "to": ()},
+        ),
     ),
 )

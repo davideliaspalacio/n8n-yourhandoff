@@ -47,6 +47,44 @@ def test_duplicate_slug_is_rejected():
         add_specs(registry, [_spec()], origin="b")
 
 
+def test_valid_graph_passes():
+    graph = (
+        {"id": "a", "label": "A", "to": ("b", "c")},
+        {"id": "b", "label": "B", "to": ("d",)},
+        {"id": "c", "label": "C", "to": ["d"]},
+        {"id": "d", "label": "D", "to": ()},
+    )
+    validate(_spec(graph=graph), origin="test")
+
+
+def test_graph_unknown_target_is_rejected():
+    graph = ({"id": "a", "label": "A", "to": ("zzz",)},)
+    with pytest.raises(RuntimeError, match="graph"):
+        validate(_spec(graph=graph), origin="test")
+
+
+def test_graph_duplicate_id_is_rejected():
+    graph = ({"id": "a", "label": "A", "to": ()}, {"id": "a", "label": "A2", "to": ()})
+    with pytest.raises(RuntimeError, match="graph"):
+        validate(_spec(graph=graph), origin="test")
+
+
+def test_graph_empty_id_is_rejected():
+    with pytest.raises(RuntimeError, match="graph"):
+        validate(_spec(graph=({"id": "", "label": "A", "to": ()},)), origin="test")
+
+
+def test_graph_without_root_is_rejected():
+    graph = ({"id": "a", "label": "A", "to": ("b",)}, {"id": "b", "label": "B", "to": ("a",)})
+    with pytest.raises(RuntimeError, match="graph"):
+        validate(_spec(graph=graph), origin="test")
+
+
+def test_every_real_flow_declares_a_graph():
+    for spec in discover().values():
+        assert spec.graph, spec.slug
+
+
 def test_discover_returns_registry():
     registry = discover()
     assert isinstance(registry, dict)

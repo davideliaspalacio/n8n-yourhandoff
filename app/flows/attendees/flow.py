@@ -147,4 +147,8 @@ spec = FlowSpec(
     run=run,
     replaces="Enrich External Attendees",
     summary="Enrich attendees with Apollo and write a pre-call bio for each",
+    graph=(
+        {"id": "apollo", "label": "Apollo match", "to": ("contact_summary",)},
+        {"id": "contact_summary", "label": "LLM bio", "to": ()},
+    ),
 )

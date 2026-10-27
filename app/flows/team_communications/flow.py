@@ -120,4 +120,9 @@ spec = FlowSpec(
     run=run,
     replaces="Search Team Communications (+ Fireflies)",
     summary="Search team communications (Gmail via Unipile + Fireflies) and summarize",
+    graph=(
+        {"id": "unipile", "label": "Gmail (Unipile)", "to": ("summary",)},
+        {"id": "fireflies", "label": "Fireflies meetings", "to": ("summary",)},
+        {"id": "summary", "label": "LLM summary", "to": ()},
+    ),
 )

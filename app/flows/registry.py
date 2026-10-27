@@ -35,6 +35,9 @@ class FlowSpec:
     replaces: str = ""  # workflow de n8n que sustituye
     summary: str = ""  # una línea para Swagger y el dashboard
     response_model: Any = None  # opcional, solo flows sync
+    # Grafo declarado para el dashboard: {"id", "label", "to": (ids siguientes)}.
+    # Los ids deben coincidir con los nombres de record_step del flow.
+    graph: tuple[dict, ...] = ()
 
 
 def validate(spec: FlowSpec, *, origin: str) -> None:
@@ -44,6 +47,32 @@ def validate(spec: FlowSpec, *, origin: str) -> None:
         raise RuntimeError(f"{origin}: mode inválido {spec.mode!r} (usa 'sync' o 'async')")
     if not (isinstance(spec.input_model, type) and issubclass(spec.input_model, BaseModel)):
         raise RuntimeError(f"{origin}: input_model debe ser un modelo Pydantic")
+    _validate_graph(spec, origin=origin)
+
+
+def _validate_graph(spec: FlowSpec, *, origin: str) -> None:
+    if not spec.graph:
+        return
+    ids: list[str] = []
+    for node in spec.graph:
+        node_id = node.get("id") if isinstance(node, dict) else None
+        if not isinstance(node_id, str) or not node_id:
+            raise RuntimeError(f"{origin}: graph con nodo sin id válido: {node!r}")
+        ids.append(node_id)
+    if len(set(ids)) != len(ids):
+        dup = sorted({i for i in ids if ids.count(i) > 1})
+        raise RuntimeError(f"{origin}: graph con ids duplicados {dup}")
+    known = set(ids)
+    targets: set[str] = set()
+    for node in spec.graph:
+        for target in node.get("to") or ():
+            if target not in known:
+                raise RuntimeError(
+                    f"{origin}: graph: {node['id']!r} apunta a {target!r}, que no existe"
+                )
+            targets.add(target)
+    if not known - targets:
+        raise RuntimeError(f"{origin}: graph sin nodo raíz (hay un ciclo)")
 
 
 def add_specs(registry: dict[str, FlowSpec], specs: Iterable[FlowSpec], *, origin: str) -> None:
