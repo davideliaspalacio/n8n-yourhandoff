@@ -1,6 +1,8 @@
 # tests/test_runs_store.py
 from __future__ import annotations
 
+from decimal import Decimal
+
 from app.runs import MemoryRunStore
 
 
@@ -43,3 +45,26 @@ async def test_list_runs_since_until():
     cutoff = (await store.list_runs())["items"][0]["created_at"]
     assert (await store.list_runs(since=cutoff))["total"] == 1
     assert (await store.list_runs(until=cutoff))["total"] == 4
+
+
+async def test_flow_stats_and_costs_summary():
+    store = MemoryRunStore()
+    ok = await store.create("echo", {})
+    await store.add_cost(ok, "openai", "chat", 1000, Decimal("0.01"))
+    await store.finish(ok, "succeeded")
+    bad = await store.create("echo", {})
+    await store.add_cost(bad, "apollo", "enrich", 1, Decimal("0.02"))
+    await store.finish(bad, "failed")
+
+    stats = await store.flow_stats(days=7)
+    assert stats["echo"]["runs"] == 2 and stats["echo"]["succeeded"] == 1
+    assert stats["echo"]["last_status"] == "failed"
+    assert stats["echo"]["cost_usd"] == 0.03
+
+    by_provider = await store.costs_summary(group_by="provider")
+    assert by_provider == [
+        {"provider": "apollo", "cost_usd": 0.02},
+        {"provider": "openai", "cost_usd": 0.01},
+    ]
+    by_day = await store.costs_summary(group_by="day")
+    assert len(by_day) == 1 and by_day[0]["cost_usd"] == 0.03

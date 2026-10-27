@@ -17,7 +17,7 @@ import uuid
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, Protocol
@@ -59,6 +59,8 @@ class RunStore(Protocol):
         page: int = 1,
         per_page: int = 50,
     ) -> dict: ...
+    async def flow_stats(self, *, days: int = 7) -> dict[str, dict]: ...
+    async def costs_summary(self, *, group_by: str = "day", days: int = 30) -> list[dict]: ...
     async def fail_orphans(self) -> int: ...
     async def close(self) -> None: ...
 
@@ -183,6 +185,45 @@ class MemoryRunStore:
             "page": page,
             "per_page": per_page,
         }
+
+    async def flow_stats(self, *, days: int = 7) -> dict[str, dict]:
+        cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
+        stats: dict[str, dict] = {}
+        for run in sorted(self._runs.values(), key=lambda r: r["created_at"]):
+            s = stats.setdefault(
+                run["flow"],
+                {
+                    "runs": 0,
+                    "succeeded": 0,
+                    "cost_usd": 0.0,
+                    "last_run_at": None,
+                    "last_status": None,
+                },
+            )
+            s["last_run_at"] = run["created_at"]
+            s["last_status"] = run["status"]
+            if run["created_at"] >= cutoff:
+                s["runs"] += 1
+                if run["status"] == SUCCEEDED:
+                    s["succeeded"] += 1
+            # El coste cuenta por fecha del evento, igual que en Postgres.
+            for c in run["costs"]:
+                if c["at"] >= cutoff:
+                    s["cost_usd"] = round(s["cost_usd"] + c["cost_usd"], 6)
+        return stats
+
+    async def costs_summary(self, *, group_by: str = "day", days: int = 30) -> list[dict]:
+        cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
+        buckets: dict[str, float] = {}
+        for run in self._runs.values():
+            for c in run["costs"]:
+                if c["at"] < cutoff:
+                    continue
+                key = c["at"][:10] if group_by == "day" else c["provider"]
+                buckets[key] = round(buckets.get(key, 0.0) + c["cost_usd"], 6)
+        key_name = "day" if group_by == "day" else "provider"
+        ordered = sorted(buckets.items(), reverse=(group_by == "day"))
+        return [{key_name: k, "cost_usd": v} for k, v in ordered]
 
     async def fail_orphans(self) -> int:
         return 0
@@ -340,6 +381,53 @@ class PostgresRunStore:
                 for r in await cur.fetchall()
             ]
         return {"items": items, "total": total, "page": page, "per_page": per_page}
+
+    async def flow_stats(self, *, days: int = 7) -> dict[str, dict]:
+        async with self._pool.connection() as conn:
+            cur = await conn.execute(
+                "select flow,"
+                " count(*) filter (where created_at > now() - make_interval(days => %s::int)),"
+                " count(*) filter (where status = 'succeeded'"
+                "   and created_at > now() - make_interval(days => %s::int)),"
+                " max(created_at),"
+                " (array_agg(status order by created_at desc))[1]"
+                " from flow_runs group by flow",
+                (days, days),
+            )
+            rows = await cur.fetchall()
+            cur = await conn.execute(
+                "select r.flow, sum(c.cost_usd)::float from flow_runs r"
+                " join cost_events c on c.run_id = r.id"
+                " where c.created_at > now() - make_interval(days => %s::int) group by r.flow",
+                (days,),
+            )
+            costs = dict(await cur.fetchall())
+        return {
+            flow: {
+                "runs": runs,
+                "succeeded": succeeded,
+                "cost_usd": round(costs.get(flow, 0.0), 6),
+                "last_run_at": last_at.isoformat(),
+                "last_status": last_status,
+            }
+            for flow, runs, succeeded, last_at, last_status in rows
+        }
+
+    async def costs_summary(self, *, group_by: str = "day", days: int = 30) -> list[dict]:
+        if group_by == "day":
+            col, order = "to_char(created_at at time zone 'UTC', 'YYYY-MM-DD')", "1 desc"
+        else:
+            col, order = "provider", "1 asc"
+        async with self._pool.connection() as conn:
+            cur = await conn.execute(
+                f"select {col} as k, round(sum(cost_usd), 6)::float from cost_events"
+                " where created_at > now() - make_interval(days => %s::int)"
+                f" group by 1 order by {order}",
+                (days,),
+            )
+            rows = await cur.fetchall()
+        key_name = "day" if group_by == "day" else "provider"
+        return [{key_name: k, "cost_usd": v} for k, v in rows]
 
     async def fail_orphans(self) -> int:
         async with self._pool.connection() as conn:

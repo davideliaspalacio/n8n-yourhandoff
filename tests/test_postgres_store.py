@@ -78,3 +78,31 @@ async def test_list_runs_filters_and_paginates(pg):
     cutoff = page["items"][0]["created_at"]
     assert (await pg.list_runs(flow=flow, since=cutoff))["total"] == 1
     assert (await pg.list_runs(flow=flow, until=cutoff))["total"] == 3
+
+
+async def test_flow_stats_and_costs_summary(pg):
+    # Flow único por ejecución: los agregados se filtran por flow, no por la base entera.
+    flow = f"stats_test_{uuid.uuid4().hex}"
+    ok = await pg.create(flow, {})
+    await pg.add_cost(ok, "stats_openai", "chat", 1000, Decimal("0.01"))
+    await pg.finish(ok, SUCCEEDED)
+    bad = await pg.create(flow, {})
+    await pg.add_cost(bad, "stats_apollo", "enrich", 1, Decimal("0.02"))
+    await pg.finish(bad, FAILED)
+
+    stats = (await pg.flow_stats(days=7))[flow]
+    assert stats["runs"] == 2 and stats["succeeded"] == 1
+    assert stats["last_status"] == FAILED
+    assert stats["cost_usd"] == 0.03
+
+    by_provider = [
+        r for r in await pg.costs_summary(group_by="provider")
+        if r["provider"].startswith("stats_")
+    ]
+    assert by_provider == [
+        {"provider": "stats_apollo", "cost_usd": 0.02},
+        {"provider": "stats_openai", "cost_usd": 0.01},
+    ]
+    by_day = await pg.costs_summary(group_by="day")
+    assert all(set(r) == {"day", "cost_usd"} for r in by_day)
+    assert by_day == sorted(by_day, key=lambda r: r["day"], reverse=True)
