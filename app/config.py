@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     http_max_attempts: int = 3
     # Segundos del primer reintento; se duplica en cada intento.
     http_retry_base_delay: float = 1.0
+    # "json" en Railway (una línea JSON por log, con run_id); "text" en local.
+    log_format: str = "text"
 
     # OpenAI
     openai_api_key: str = ""

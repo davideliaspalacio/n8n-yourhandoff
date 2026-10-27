@@ -95,5 +95,7 @@ def create_app(
     return app
 
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+from .obslog import setup_logging  # noqa: E402
+
+setup_logging(get_settings().log_format)
 app = create_app()
