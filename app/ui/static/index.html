@@ -38,6 +38,18 @@ pre { background:var(--card); padding:.7rem; border-radius:8px; overflow:auto;
 .step { border-left:3px solid var(--line); padding:.2rem 0 .2rem .8rem; margin:.3rem 0 }
 .step.failed { border-color:var(--bad) } .step.succeeded { border-color:var(--ok) }
 a { color:var(--accent) }
+.pipe { display:flex; flex-wrap:wrap; align-items:center; gap:.4rem .2rem; margin:.6rem 0 }
+.node { display:flex; align-items:center; gap:.5rem; padding:.5rem .8rem; background:var(--card);
+  border:1px solid var(--line); border-left:4px solid var(--run); border-radius:8px;
+  cursor:pointer; font:inherit; color:var(--fg) }
+.node:hover, .node.sel { border-color:var(--accent); border-left-color:var(--run) }
+.node.succeeded { border-left-color:var(--ok) } .node.failed { border-left-color:var(--bad) }
+.node .ico { font-weight:700; color:var(--run) }
+.node.succeeded .ico { color:var(--ok) } .node.failed .ico { color:var(--bad) }
+.arrow { color:var(--muted); padding:0 .15rem }
+.pipe-detail { background:var(--card); border:1px solid var(--line); border-radius:8px;
+  padding:.6rem .8rem; margin:.4rem 0 }
+.pipe-detail pre { margin:.4rem 0 0 }
 </style>
 </head>
 <body>
@@ -73,19 +85,79 @@ async function api(path, opts = {}) {
 
 const statusCell = s => `<span class="status ${esc(s)}">${esc(s)}</span>`;
 
+// n8n-style pipeline: connected nodes, click a node to toggle its detail panel.
+// Steps are kept in a registry so onclick only passes small numeric ids.
+const pipes = [];
+function pipelineHtml(steps) {
+  steps = steps || [];
+  if (!steps.length) return '<p class="muted">No steps recorded.</p>';
+  const pid = pipes.push(steps) - 1;
+  const cls = s => s === 'succeeded' || s === 'failed' ? s : 'other';
+  const ico = s => s === 'succeeded' ? '✓' : s === 'failed' ? '✗' : '●';
+  return `<div class="pipe" id="pipe-${pid}">` + steps.map((s, i) =>
+    (i ? '<span class="arrow">─▶</span>' : '') +
+    `<button type="button" class="node ${cls(s.status)}" onclick="showStep(${pid}, ${i})"
+       title="${esc(s.status)}"><span class="ico">${ico(s.status)}</span>
+       <span>${esc(s.name)}</span></button>`).join('') +
+    `</div><div class="pipe-detail" id="pipe-detail-${pid}" hidden></div>`;
+}
+function showStep(pid, i) {
+  const box = document.getElementById('pipe-detail-' + pid);
+  const nodes = document.querySelectorAll(`#pipe-${pid} .node`);
+  const s = pipes[pid][i];
+  const same = box.dataset.sel === String(i) && !box.hidden;
+  nodes.forEach((n, j) => n.classList.toggle('sel', !same && j === i));
+  box.dataset.sel = String(i);
+  box.hidden = same;
+  if (same) return;
+  box.innerHTML = `<strong>${esc(s.name)}</strong> ${statusCell(s.status)}
+    <span class="muted">· ${when(s.at)}</span>` +
+    (s.detail ? `<pre>${esc(JSON.stringify(s.detail, null, 2))}</pre>`
+              : '<div class="muted">No detail.</div>');
+}
+
 async function renderFlows() {
   const { flows } = await api('/v1/flows');
   view.innerHTML = `<h2>Flows <span class="muted">(${flows.length})</span></h2>
   <table><tr><th>Flow</th><th>Mode</th><th>Replaces (n8n)</th><th>Last run</th>
   <th>Runs 7d</th><th>OK 7d</th><th>Cost 7d</th></tr>` + flows.map(f => `
-  <tr class="link" onclick="location.hash='#/runs?flow=${encodeURIComponent(f.slug)}'">
-    <td><strong>${esc(f.title)}</strong><br><span class="muted">${esc(f.endpoint)}</span></td>
+  <tr class="link" onclick="location.hash='#/flows/${encodeURIComponent(f.slug)}'">
+    <td><strong>${esc(f.title)}</strong>
+        <a href="#/runs?flow=${encodeURIComponent(f.slug)}" class="muted"
+           onclick="event.stopPropagation()">runs</a>
+        <br><span class="muted">${esc(f.endpoint)}</span></td>
     <td><span class="pill">${esc(f.mode)}</span></td>
     <td class="muted">${esc(f.replaces)}</td>
     <td>${f.stats.last_status ? statusCell(f.stats.last_status) + '<br>' : ''}
         <span class="muted">${when(f.stats.last_run_at)}</span></td>
     <td>${f.stats.runs}</td><td>${f.stats.succeeded}</td><td>${money(f.stats.cost_usd)}</td>
   </tr>`).join('') + '</table>';
+}
+
+async function renderFlow(slug) {
+  const { flows } = await api('/v1/flows');
+  const f = flows.find(x => x.slug === slug);
+  if (!f) throw new Error('Unknown flow: ' + slug);
+  const [ok, bad] = await Promise.all([
+    api('/v1/runs?' + new URLSearchParams({ flow: slug, status: 'succeeded', per_page: 1 })),
+    api('/v1/runs?' + new URLSearchParams({ flow: slug, status: 'failed', per_page: 1 })),
+  ]);
+  const last = ok.items[0] ? await api('/v1/runs/' + ok.items[0].id) : null;
+  const runsLink = `#/runs?flow=${encodeURIComponent(slug)}`;
+  const failedLink = `#/runs?${new URLSearchParams({ flow: slug, status: 'failed' })}`;
+  view.innerHTML = `<p><a href="#/flows">← flows</a></p>
+  <h2>${esc(f.title)} <span class="pill">${esc(f.mode)}</span></h2>
+  <p class="muted">${esc(f.slug)} · ${esc(f.endpoint)}<br>Replaces (n8n): ${esc(f.replaces)}</p>
+  <p>Last 7 days: <strong>${f.stats.runs}</strong> runs · <strong>${f.stats.succeeded}</strong> OK
+    · cost ${money(f.stats.cost_usd)}
+    ${f.stats.last_status ? `· last ${statusCell(f.stats.last_status)} ${when(f.stats.last_run_at)}` : ''}</p>
+  <p><a href="${runsLink}">View runs</a></p>
+  <h3>Process <span class="muted">${last
+    ? `— from the latest successful run <a href="#/runs/${esc(last.id)}">${when(last.created_at)}</a>`
+    : ''}</span></h3>
+  ${last ? pipelineHtml(last.steps)
+    : `<p class="muted">No successful runs yet — the process will appear after the first run.${
+        bad.total ? ` <a href="${failedLink}">View failed runs</a>` : ''}</p>`}`;
 }
 
 async function renderRuns(params) {
@@ -136,10 +208,7 @@ async function renderRun(id) {
   ${run.error ? `<p class="err">${esc(run.error)}</p>` : ''}
   <button class="primary" id="replay">Replay with same input</button>
   <h3>Steps</h3>
-  ${(run.steps || []).map(s => `<div class="step ${esc(s.status)}">
-      <strong>${esc(s.name)}</strong> <span class="muted">${esc(s.status)} · ${when(s.at)}</span>
-      ${s.detail ? `<pre>${esc(JSON.stringify(s.detail, null, 2))}</pre>` : ''}</div>`).join('')
-    || '<p class="muted">No steps recorded.</p>'}
+  ${pipelineHtml(run.steps)}
   <h3>Costs</h3>
   ${(run.costs || []).length ? '<table><tr><th>Provider</th><th>Operation</th><th>Units</th><th>USD</th></tr>' +
     run.costs.map(c => `<tr><td>${esc(c.provider)}</td><td>${esc(c.operation)}</td>
@@ -181,6 +250,7 @@ async function render() {
   view.innerHTML = '<p class="muted">Loading…</p>';
   try {
     if (path.startsWith('runs/')) await renderRun(path.split('/')[1]);
+    else if (path.startsWith('flows/')) await renderFlow(decodeURIComponent(path.split('/')[1]));
     else if (tab === 'runs') await renderRuns(params);
     else if (tab === 'costs') await renderCosts();
     else await renderFlows();
