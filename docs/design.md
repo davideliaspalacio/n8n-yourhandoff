@@ -13,14 +13,16 @@ en el que cada subflujo es también un endpoint propio.
 
 ## Flujos migrados
 
+Desde 2026-10-26 los flujos viven como paquetes con FlowSpec (ver CLAUDE.md).
+
 | n8n | Módulo | Endpoint |
 |---|---|---|
-| Discovery Call Booked | `flows/discovery_call.py` | `POST /v1/flows/discovery-call-booked` (202) |
-| Search Team Communications | `flows/team_communications.py` | `POST /v1/communications/search` |
-| Enrich External Attendees | `flows/attendees.py` | `POST /v1/contacts/enrich` |
-| Enrich Company (+ Get LinkedIn Data, News + Job Search) | `flows/company.py` | `POST /v1/companies/enrich` |
-| Company CRM Add/Update | `flows/company_crm.py` | `POST /v1/crm/companies` |
-| Contact CRM Add/Update | `flows/contact_crm.py` | `POST /v1/crm/contacts` |
+| Discovery Call Booked | `flows/discovery_call/` | `POST /v1/flows/discovery-call-booked` (202) |
+| Search Team Communications | `flows/team_communications/` | `POST /v1/communications/search` |
+| Enrich External Attendees | `flows/attendees/` | `POST /v1/contacts/enrich` |
+| Enrich Company (+ Get LinkedIn Data, News + Job Search) | `flows/company/` | `POST /v1/companies/enrich` |
+| Company CRM Add/Update | `flows/crm/` | `POST /v1/crm/companies` |
+| Contact CRM Add/Update | `flows/crm/` | `POST /v1/crm/contacts` |
 | Post Note to Hubspot | `clients/hubspot.py` | `POST /v1/crm/notes` |
 | execution-logger | `runs.py` | `GET /v1/runs/{run_id}` |
 

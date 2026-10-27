@@ -106,3 +106,9 @@ async def test_flow_stats_and_costs_summary(pg):
     by_day = await pg.costs_summary(group_by="day")
     assert all(set(r) == {"day", "cost_usd"} for r in by_day)
     assert by_day == sorted(by_day, key=lambda r: r["day"], reverse=True)
+
+
+async def test_migration_renames_legacy_snake_case_flows(pg):
+    run_id = await pg.create("enrich_company", {"companyUrl": "staynido.com"})
+    await pg.migrate()
+    assert (await pg.get(run_id))["flow"] == "enrich-company"

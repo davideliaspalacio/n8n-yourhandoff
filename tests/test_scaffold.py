@@ -21,3 +21,12 @@ def test_scaffold_rejects_bad_slug_and_duplicates(tmp_path):
     create_flow("dup", root=tmp_path)
     with pytest.raises(FileExistsError):
         create_flow("dup", root=tmp_path)
+
+
+def test_scaffold_rejects_leading_digit_and_unsafe_text(tmp_path):
+    with pytest.raises(ValueError, match="slug"):
+        create_flow("1-lead", root=tmp_path)
+    with pytest.raises(ValueError, match="title"):
+        create_flow("ok-flow", title='Di "hola"', root=tmp_path)
+    with pytest.raises(ValueError, match="replaces"):
+        create_flow("ok-flow", replaces="a\\b", root=tmp_path)

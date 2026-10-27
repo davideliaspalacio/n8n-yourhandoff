@@ -11,7 +11,7 @@ import argparse
 import re
 from pathlib import Path
 
-SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+SLUG_RE = re.compile(r"^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$")
 
 FLOW_PY = '''"""{title}: TODO qué hace, en una línea.
 
@@ -100,7 +100,12 @@ def create_flow(
     slug: str, *, title: str | None = None, replaces: str = "", root: Path = Path(".")
 ) -> list[Path]:
     if not SLUG_RE.fullmatch(slug):
-        raise ValueError(f"slug inválido {slug!r} (kebab-case: a-z, 0-9, '-')")
+        raise ValueError(f"slug inválido {slug!r} (kebab-case: empieza por letra; a-z, 0-9, '-')")
+    # title/replaces se interpolan dentro de literales "..." del código generado:
+    # comillas o barras invertidas lo romperían.
+    for name, value in (("title", title), ("replaces", replaces)):
+        if value and ('"' in value or "\\" in value):
+            raise ValueError(f'{name} no puede contener " ni \\: {value!r}')
     pkg = slug.replace("-", "_")
     cls = "".join(p.capitalize() for p in slug.split("-"))
     title = title or " ".join(p.capitalize() for p in slug.split("-"))
@@ -119,7 +124,7 @@ def create_flow(
         tests_dir / f"test_{pkg}.py": TEST_PY,
     }
     for path, template in files.items():
-        path.write_text(template.format(**ctx))
+        path.write_text(template.format(**ctx), encoding="utf-8")
     return list(files)
 
 
