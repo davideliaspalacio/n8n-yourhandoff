@@ -71,6 +71,7 @@ uv run python scripts/new_flow.py mi-flujo --replaces "Mi Flujo (n8n)"
 
 Crea `app/flows/mi_flujo/` siguiendo la convención (ver `CLAUDE.md`); al
 arrancar aparece solo en Swagger, en `/ui` y en `GET /v1/flows`.
+Desarrollo asistido por AI (catálogo, skill, agente): `docs/ai-development.md`.
 
 ## Cortar n8n
 

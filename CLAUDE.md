@@ -31,6 +31,12 @@ cada flow es un paquete que se registra solo.
 
 ## Migrar un workflow de n8n
 
+Antes de cualquier flow, corre `uv run python scripts/catalog.py`: inventario
+vivo (flows, clients, dominio, settings) para reusar en vez de duplicar.
+Existe la skill `crear-flujo` (`.claude/skills/crear-flujo/SKILL.md`) con el
+proceso completo y el agente `flow-builder` que la sigue; ver
+`docs/ai-development.md`.
+
 1. Exportar el JSON del workflow desde n8n.
 2. `uv run python scripts/new_flow.py <slug> --replaces "<nombre en n8n>" [--kind node]`.
    `kind` del `FlowSpec` (`workflow` por defecto): `workflow` = sustituye un
