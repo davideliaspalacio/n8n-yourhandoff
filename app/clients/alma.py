@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from ..config import require
 from .base import BaseClient
 from .http import ProviderError
@@ -45,3 +47,44 @@ class AlmaClient(BaseClient):
             for r in rows or []
             if r.get("unipilePlatform") == "Google" and r.get("unipileAccountId")
         ]
+
+    async def find(self, table: str, **eq_filters: Any) -> list[dict]:
+        """Filas de `table` que cumplen todos los `columna=valor` (igualdad)."""
+        rows = await self._request(
+            "GET",
+            self._url(table),
+            headers=self._headers(),
+            params={**{k: f"eq.{v}" for k, v in eq_filters.items()}, "select": "*"},
+        )
+        return rows or []
+
+    async def upsert(self, table: str, row: dict, *, on_conflict: str) -> dict:
+        """Inserta o actualiza por `on_conflict` y devuelve la fila resultante."""
+        rows = await self._request(
+            "POST",
+            self._url(table),
+            headers={
+                **self._headers(),
+                "Prefer": "resolution=merge-duplicates,return=representation",
+            },
+            params={"on_conflict": on_conflict},
+            json=row,
+        )
+        if not rows:
+            raise ProviderError(self.provider, f"upsert into {table} returned no row")
+        return rows[0]
+
+    async def insert(self, table: str, row: dict) -> dict | None:
+        """Inserta una fila; `None` si ya existía (409, clave duplicada)."""
+        try:
+            rows = await self._request(
+                "POST",
+                self._url(table),
+                headers={**self._headers(), "Prefer": "return=representation"},
+                json=row,
+            )
+        except ProviderError as exc:
+            if exc.status == 409:
+                return None
+            raise
+        return rows[0] if rows else {}

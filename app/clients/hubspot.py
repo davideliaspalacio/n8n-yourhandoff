@@ -11,6 +11,7 @@ from typing import Any, Literal
 
 from ..config import require
 from .base import BaseClient
+from .http import ProviderError
 
 HUBSPOT_URL = "https://api.hubapi.com"
 
@@ -120,3 +121,53 @@ class HubSpotClient(BaseClient):
             },
         )
         return data["id"]
+
+    async def search_contacts_modified_since(
+        self, since_ms: int, *, properties: list[str], page_limit: int = 100
+    ) -> list[dict]:
+        """Contactos con `lastmodifieddate` posterior a `since_ms` (epoch ms).
+        Sigue `paging.next.after` hasta agotar las páginas."""
+        out: list[dict] = []
+        after: str | None = None
+        while True:
+            body: dict[str, Any] = {
+                "filterGroups": [
+                    {
+                        "filters": [
+                            {
+                                "propertyName": "lastmodifieddate",
+                                "operator": "GT",
+                                "value": str(since_ms),
+                            }
+                        ]
+                    }
+                ],
+                "properties": properties,
+                "limit": page_limit,
+            }
+            if after:
+                body["after"] = after
+            data = await self._request(
+                "POST",
+                f"{HUBSPOT_URL}/crm/v3/objects/contacts/search",
+                headers=self._headers(),
+                json=body,
+            )
+            out.extend((data or {}).get("results") or [])
+            after = (((data or {}).get("paging") or {}).get("next") or {}).get("after")
+            if not after:
+                return out
+
+    async def get_company(self, company_id: str, *, properties: list[str]) -> dict | None:
+        """Empresa por id; `None` si no existe (404)."""
+        try:
+            return await self._request(
+                "GET",
+                f"{HUBSPOT_URL}/crm/v3/objects/companies/{company_id}",
+                headers=self._headers(),
+                params={"properties": ",".join(properties)},
+            )
+        except ProviderError as exc:
+            if exc.status == 404:
+                return None
+            raise

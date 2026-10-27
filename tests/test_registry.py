@@ -64,3 +64,7 @@ def test_crm_and_orchestrator_flows_are_registered():
     registry = discover()
     assert {"crm-company", "crm-contact", "crm-note", "discovery-call-booked"} <= set(registry)
     assert registry["discovery-call-booked"].mode == "async"
+
+
+def test_sync_hubspot_to_alma_is_registered_and_async():
+    assert discover()["sync-hubspot-to-alma"].mode == "async"
