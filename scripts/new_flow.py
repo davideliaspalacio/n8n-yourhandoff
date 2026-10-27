@@ -46,6 +46,7 @@ spec = FlowSpec(
     mode="sync",  # "async" si debe responder 202 + run_id
     replaces="{replaces}",
     summary="TODO: one line for Swagger",
+    description="TODO: 2-4 sentences of context",  # se muestra al entrar al flow en /ui
     # Mapa del proceso para el dashboard; ids = nombres de record_step.
     graph=(
         {{"id": "todo", "label": "TODO", "to": ()}},

@@ -140,6 +140,11 @@ specs = (
         response_model=CompanyCrmResult,
         run=run_company_crm,
         replaces="Company CRM Add/Update",
+        description=(
+            "Creates or updates a HubSpot company, matched by domain so it is never "
+            "duplicated, and posts an AI-generated note on it. A failure in the AI note "
+            "does not undo the upsert; it is reported as aiNoteSuccess=false."
+        ),
         summary="Create or update a HubSpot company (matched by domain) and post its AI note",
         graph=(
             {"id": "crm-company", "label": "Upsert company", "to": ()},
@@ -153,6 +158,11 @@ specs = (
         response_model=ContactCrmResult,
         run=run_contact_crm,
         replaces="Contact CRM Add/Update",
+        description=(
+            "Creates or updates a HubSpot contact, matched by email, and associates it "
+            "with its company. It is the contact counterpart of the company upsert used "
+            "by the discovery call workflow."
+        ),
         summary="Create or update a HubSpot contact (by email) and link it to a company",
         graph=(
             {"id": "crm-contact", "label": "Upsert contact", "to": ()},
@@ -166,6 +176,11 @@ specs = (
         response_model=NoteResult,
         run=run_note,
         replaces="Post Note to Hubspot",
+        description=(
+            "Posts a note to a HubSpot company or contact, depending on the target given "
+            "in the input. It replaces the n8n workflow \"Post Note to Hubspot\" and "
+            "keeps its legacy /v1/crm/notes alias."
+        ),
         summary="Post a note to a HubSpot company or contact",
         graph=(
             {"id": "crm-note", "label": "Post note", "to": ()},

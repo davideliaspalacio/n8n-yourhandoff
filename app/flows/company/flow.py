@@ -184,6 +184,13 @@ spec = FlowSpec(
     response_model=CompanyEnrichment,
     run=run,
     replaces="Enrich Company (+ Get LinkedIn Data, News + Job Search)",
+    description=(
+        "Enriches a company from its URL using Apollo organization data, Google News and "
+        "Google Jobs results (via SerpApi) and an LLM-generated JSON summary. SerpApi "
+        "failures degrade without breaking the flow. It keeps the response shape of the "
+        "old n8n webhook (Company, linkedIn, crm) so existing callers keep working, and "
+        "it is reused by the discovery call workflow."
+    ),
     summary="Enrich a company (Apollo, Google News, Google Jobs) and summarize it",
     graph=(
         {

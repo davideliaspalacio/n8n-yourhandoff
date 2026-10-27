@@ -323,6 +323,7 @@ async function renderFlow(slug) {
     </div>
     <a class="btn btn-outline-primary btn-sm" href="${runsLink}">View runs</a>
   </div>
+  ${f.description ? `<p class="text-body-secondary mb-4" style="max-width: 70ch"><span class="stat-label d-block mb-1">About</span>${esc(f.description)}</p>` : ''}
   <div class="row g-3 mb-4">
     ${stat('Runs 7d', `<div class="stat-value">${f.stats.runs}</div>`)}
     ${stat('OK 7d', `<div class="stat-value">${f.stats.succeeded}</div>`)}

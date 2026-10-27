@@ -39,6 +39,8 @@ cada flow es un paquete que se registra solo.
    separa en dos tabs (Workflows / Nodes).
 3. Implementar `schemas.py` (el input es el cuerpo del trigger de n8n) y
    `flow.py`, marcando pasos con `record_step`. Mirar un flow parecido.
+   Rellenar `description` en el `FlowSpec` (obligatorio): párrafo de 2-4 frases
+   con el contexto del flow, que se ve en el bloque "About" al entrar a /ui.
    Declarar `graph` en el `FlowSpec`: nodos `{"id", "label", "to": (ids)}`.
    Los ids deben coincidir con los nombres de `record_step` (así el último
    run colorea cada nodo); se permiten nodos solo declarativos. El dashboard

@@ -336,6 +336,14 @@ spec = FlowSpec(
     run=run,
     mode="async",
     replaces="Discovery Call Booked",
+    description=(
+        "Runs end to end when a discovery call is booked: it adds the team to the "
+        "calendar event, then researches the company, the external attendees and prior "
+        "team communications in parallel. The results are upserted into HubSpot and a "
+        "briefing is posted to Slack. Research steps degrade gracefully, and with dry_run "
+        "the flow investigates without writing anything outside. Replaces the n8n "
+        "workflow \"Discovery Call Booked\"."
+    ),
     summary="Run the Discovery Call Booked flow",
     graph=(
         {

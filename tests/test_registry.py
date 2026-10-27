@@ -113,3 +113,10 @@ def test_crm_and_orchestrator_flows_are_registered():
 
 def test_sync_hubspot_to_alma_is_registered_and_async():
     assert discover()["sync-hubspot-to-alma"].mode == "async"
+
+
+def test_every_real_flow_has_a_description():
+    registry = discover()
+    assert len(registry) == 8
+    for slug, spec in registry.items():
+        assert spec.description.strip(), f"{slug} sin description"

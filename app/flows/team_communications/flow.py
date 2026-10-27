@@ -120,6 +120,14 @@ spec = FlowSpec(
     response_model=CommunicationsResult,
     run=run,
     replaces="Search Team Communications (+ Fireflies)",
+    description=(
+        "Searches the team's communication history with the given external contacts, "
+        "combining emails from the team's Gmail accounts (via Unipile) and Fireflies "
+        "meeting summaries, and summarizes everything with an LLM. Fireflies is queried "
+        "even when there are no emails, and Fireflies failures degrade gracefully. If "
+        "every email account fails, the flow errors instead of returning an empty "
+        "summary."
+    ),
     summary="Search team communications (Gmail via Unipile + Fireflies) and summarize",
     graph=(
         {"id": "unipile", "label": "Gmail (Unipile)", "to": ("summary",)},

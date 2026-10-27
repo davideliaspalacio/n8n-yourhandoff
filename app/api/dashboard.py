@@ -29,6 +29,7 @@ async def list_flows(request: Request, store: RunStore = Depends(run_store)) -> 
             "mode": spec.mode,
             "kind": spec.kind,
             "replaces": spec.replaces,
+            "description": spec.description,
             "endpoint": f"/v1/flows/{spec.slug}",
             "stats": stats.get(spec.slug, EMPTY_STATS),
             "graph": [

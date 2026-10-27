@@ -29,6 +29,7 @@ ECHO = FlowSpec(
     input_model=EchoInput,
     run=_echo,
     replaces="Echo v1",
+    description="Echoes the input text back.",
     graph=(
         {"id": "in", "label": "Input", "to": ("out",)},
         {"id": "out", "label": "Output", "to": ()},
@@ -53,6 +54,7 @@ async def test_flows_lists_registry_with_stats(dash):
     body = (await c.get("/v1/flows", headers=H)).json()
     [flow] = body["flows"]
     assert flow["kind"] == "workflow"
+    assert flow["description"] == "Echoes the input text back."
     assert flow["slug"] == "echo" and flow["endpoint"] == "/v1/flows/echo"
     assert flow["stats"]["runs"] == 1 and flow["stats"]["succeeded"] == 1
     assert flow["graph"] == [

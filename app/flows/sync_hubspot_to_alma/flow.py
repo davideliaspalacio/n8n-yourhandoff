@@ -191,6 +191,14 @@ spec = FlowSpec(
     run=run,
     mode="async",
     replaces="Sync Hubspot to Alma",
+    description=(
+        "Syncs HubSpot contacts modified since a given time (default: the last hour), "
+        "together with their companies, into Alma's Supabase, running hourly or on "
+        "demand. It skips test accounts, contacts without a company and companies without "
+        "a name, and upserts companies, contacts and their links. It fixes two bugs of "
+        "the n8n original (a hardcoded since timestamp and broken pagination), and "
+        "dry_run reads everything but reports would_upsert counts instead of writing."
+    ),
     summary="Sync recently modified HubSpot contacts and their companies into Alma's Supabase",
     graph=(
         {"id": "hubspot_search", "label": "HubSpot search", "to": ("filter",)},

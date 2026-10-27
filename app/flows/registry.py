@@ -37,6 +37,8 @@ class FlowSpec:
     mode: str = "sync"  # "sync": respuesta directa | "async": 202 + run_id
     replaces: str = ""  # workflow de n8n que sustituye
     summary: str = ""  # una línea para Swagger y el dashboard
+    # Párrafo de contexto (2-4 frases) que se ve al entrar al flow en /ui
+    description: str = ""
     response_model: Any = None  # opcional, solo flows sync
     # Grafo declarado para el dashboard: {"id", "label", "to": (ids siguientes)}.
     # Los ids deben coincidir con los nombres de record_step del flow.

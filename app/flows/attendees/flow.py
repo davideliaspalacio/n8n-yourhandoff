@@ -147,6 +147,13 @@ spec = FlowSpec(
     response_model=list[EnrichedContact],
     run=run,
     replaces="Enrich External Attendees",
+    description=(
+        "Enriches the external attendees of a meeting by matching each email in Apollo "
+        "and writing a pre-call bio per contact with an LLM. Contacts are processed "
+        "independently and in parallel, so one failure does not affect the others and a "
+        "bio can never be attached to the wrong person. An email with no Apollo match "
+        "returns enriched=false without calling the model."
+    ),
     summary="Enrich attendees with Apollo and write a pre-call bio for each",
     graph=(
         {"id": "apollo", "label": "Apollo match", "to": ("contact_summary",)},
