@@ -1,7 +1,10 @@
+from types import SimpleNamespace
+
 import httpx
 import pytest
 
 from app.clients.http import ProviderError, request_json
+from app.clients.openai_llm import LLMClient, ensure_json_mention
 from app.runs import bind_run
 from tests.conftest import ALMA, prompts_route
 
@@ -82,3 +85,55 @@ async def test_slack_raises_when_not_ok(clients, mock):
     )
     with pytest.raises(ProviderError, match="channel_not_found"):
         await clients.slack.post_message("hi")
+
+
+class _FakeCompletions:
+    """Guarda el mensaje enviado, para comprobar qué texto llega de verdad a OpenAI."""
+
+    def __init__(self) -> None:
+        self.messages: list[dict] = []
+
+    async def create(self, *, model, messages, response_format):
+        self.messages = messages
+        usage = SimpleNamespace(
+            prompt_tokens=10,
+            completion_tokens=5,
+            prompt_tokens_details=SimpleNamespace(cached_tokens=0),
+        )
+        return SimpleNamespace(
+            id="chatcmpl-test",
+            model=model,
+            usage=usage,
+            choices=[SimpleNamespace(message=SimpleNamespace(content='{"summary": "ok"}'))],
+        )
+
+
+def _fake_openai(completions: _FakeCompletions) -> SimpleNamespace:
+    return SimpleNamespace(chat=SimpleNamespace(completions=completions))
+
+
+def test_ensure_json_mention_leaves_a_prompt_that_already_says_json():
+    for prompt in ("Return a JSON object.", "responde en json"):
+        assert ensure_json_mention(prompt) == prompt
+
+
+def test_ensure_json_mention_adds_the_instruction_when_missing():
+    salida = ensure_json_mention("Summarize these emails.")
+    assert salida.startswith("Summarize these emails.")
+    assert "json" in salida.lower()
+
+
+async def test_complete_json_always_sends_the_word_json(settings, store):
+    """Los prompts vienen de `handoff_prompt_library` y ninguno de los tres que
+    usan los flows menciona json. Sin esta garantía OpenAI responde 400
+    ("'messages' must contain the word 'json'") y el paso degrada sin resumen."""
+    completions = _FakeCompletions()
+    client = LLMClient(settings, client=_fake_openai(completions))
+    run_id = await store.create("t", {})
+    with bind_run(store, run_id):
+        result = await client.complete_json("Summarize these emails.", stage="team_communications")
+    enviado = completions.messages[0]["content"]
+    assert "json" in enviado.lower()
+    assert result.prompt == enviado
+    run = await store.get(run_id)
+    assert [c["operation"] for c in run["costs"]] == ["team_communications"]

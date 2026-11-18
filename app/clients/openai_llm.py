@@ -14,6 +14,21 @@ from ..runs import record_cost
 
 MILLION = Decimal(1_000_000)
 
+# OpenAI rechaza `response_format` de tipo `json_object` si el texto del mensaje
+# no menciona la palabra "json": devuelve 400 `'messages' must contain the word
+# 'json' in some form`. Los prompts salen de `handoff_prompt_library`, una tabla
+# que comparten otros sistemas (el brief del CEO, el parseo de CVs), así que la
+# garantía vive aquí y no en la tabla: así ningún flow depende de que alguien
+# recuerde la palabra al editar un prompt.
+JSON_INSTRUCTION = "Respond with a single JSON object."
+
+
+def ensure_json_mention(prompt: str) -> str:
+    """El prompt tal cual si ya menciona json; si no, con la instrucción al final."""
+    if "json" in prompt.lower():
+        return prompt
+    return f"{prompt}\n\n{JSON_INSTRUCTION}"
+
 
 @dataclass(frozen=True)
 class LLMResult:
@@ -65,10 +80,11 @@ class LLMClient:
         )
 
     async def complete_json(self, prompt: str, *, stage: str) -> LLMResult:
+        texto = ensure_json_mention(prompt)
         started = time.perf_counter()
         response = await self.client.chat.completions.create(
             model=self.settings.openai_model,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[{"role": "user", "content": texto}],
             response_format={"type": "json_object"},
         )
         latency_ms = int((time.perf_counter() - started) * 1000)
@@ -104,5 +120,5 @@ class LLMClient:
             output_tokens=output,
             cost_usd=cost,
             latency_ms=latency_ms,
-            prompt=prompt,
+            prompt=texto,
         )
